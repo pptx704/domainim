@@ -1,5 +1,5 @@
 # Domainim
-Domainim domain reconnaissance tool for bounty hunters written in Nim.
+A domain reconnaissance tool for bounty hunters written in Nim.
 
 Current features (v0.1.0)-
 - Subdomain enumeration
