@@ -37,9 +37,9 @@ proc getARecords(response: Response): seq[SubDomain] =
             if sub notin result:
                 result.add(sub)
         except IndexDefect:
-            echo "Could not find any data for the given domain. Check back later or check if the domain is correct or update RegEx pattern."
-            quit(1)
-
+            raise newException(WebpageParseError, "A records not found (engine: crt.sh)")
+    if len(result) == 0:
+        raise newException(WebpageParseError, "A records not found (engine: crt.sh)")
 
 proc getCrtSubs*(url: string): seq[SubDomain] =
     return getARecords(makeRequest(url))
