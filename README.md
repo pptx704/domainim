@@ -38,12 +38,13 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 
 ### Planned features
 - [ ] Open ports enumeration
-- [ ] Multiple domain enumeration
 - [ ] Give more control to the user by adding flags
+- [ ] File output (probably CSV or JSON)
+- [ ] Multiple domain enumeration
 - [ ] Add more engines for subdomain enumeration
 - [ ] Dir and File busting
 
 ### Others
-- [ ] Update verbose output when encountering errors (v1)
+- [ ] Update verbose output when encountering errors (v1.0.0)
 - [ ] Add tests
 - [ ] Add comments and docstrings
