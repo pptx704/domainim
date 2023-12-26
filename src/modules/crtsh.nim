@@ -1,6 +1,6 @@
 # Module crtsh
 
-import std/[httpclient, strformat]
+import std/[httpclient, strformat, net]
 import regex
 import sfutils
 
@@ -24,8 +24,11 @@ let
 client.headers = newHttpHeaders(headers)
 
 proc makeRequest(url: string): Response =
-    let paramUrl = fmt"{crtUrl}?Identity={url}&match=="#&exclude=expired"
-    result = client.get(paramUrl)
+    try:
+        let paramUrl = fmt"{crtUrl}?Identity={url}&match=="#&exclude=expired"
+        result = client.get(paramUrl)
+    except TimeoutError:
+        raise newException(WebpageParseError, "crt.sh is not responding as expected")
 
 
 proc getARecords(response: Response): seq[SubDomain] =
