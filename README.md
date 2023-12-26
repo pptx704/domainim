@@ -19,7 +19,7 @@
   <a href="#known-bugs">Known Bugs</a>
 </p>
 
-Domainim domain reconnaissance tool for bounty hunters written in Nim.
+Domainim is a 🚀 Blazing fast 🚀 domain reconnaissance tool for bounty hunters written in Nim.
 
 # Features
 Current features (v0.2.0)-
@@ -74,7 +74,6 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 ## Others
 - [x] Update verbose output when encountering errors (v0.2.0)
 - [x] Show progress bar for longer operations
-- [ ] Make hostname resolving optional/asynchronous
 - [ ] Add tests
 - [ ] Add comments and docstrings
 

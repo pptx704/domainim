@@ -28,6 +28,8 @@ proc clean(sub: Subdomain, target: string): string =
     var data = sub.url.strip(trailing=false, chars = {'.', '*'})
     if target notin data:
         return ""
+    if target != data and ("." & target) notin data:
+        return ""
     return data
 
 proc resolveDomain(subdomain: string): Future[Subdomain] {.async.} =

@@ -25,7 +25,7 @@ client.headers = newHttpHeaders(headers)
 
 proc makeRequest(url: string): Response =
     try:
-        let paramUrl = fmt"{crtUrl}?Identity={url}&match=="#&exclude=expired"
+        let paramUrl = fmt"{crtUrl}?Identity={url}"#&exclude=expired"
         result = client.get(paramUrl)
     except TimeoutError:
         raise newException(WebpageParseError, "crt.sh is not responding as expected")
