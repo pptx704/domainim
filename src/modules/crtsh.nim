@@ -19,7 +19,7 @@ let
     }
 
 
-    client: HttpClient = newHttpClient(userAgent, timeout=20000) # 10s timeout
+    client: HttpClient = newHttpClient(userAgent, timeout=20000) # 20s timeout
 
 client.headers = newHttpHeaders(headers)
 

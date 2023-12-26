@@ -3,7 +3,7 @@
 ## This module parses dnsdumpster to get A records for the given domain
 ## Currently it supports only dnsdumpster.com. 
 
-import std/[httpclient, options]
+import std/[httpclient, options, strutils, net]
 import regex
 import sfutils
 
@@ -23,7 +23,7 @@ let
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    client: HttpClient = newHttpClient(userAgent, timeout=20000) # 10s timeout
+    client: HttpClient = newHttpClient(userAgent, timeout=20000) # 20s timeout
 
 client.headers = newHttpHeaders(headers)
 
@@ -54,10 +54,10 @@ proc makeRequest(reqMethod: string, url: string): Response =
         result = client.get(ddUrl)
     else:
         var resp: Response
+        resp = makeRequest("GET", ddUrl)
         try:
-            resp = makeRequest("GET", ddUrl)
             setCookie(resp)
-        except KeyError:
+        except KeyError, TimeoutError:
             raise newException(WebpageParseError, "dnsdumpster.com is not responding as expected")
 
         var data = MultipartData()
@@ -65,6 +65,8 @@ proc makeRequest(reqMethod: string, url: string): Response =
         data["targetip"] = url
         data["user"] = "free"
         result = client.post(ddUrl, multipart = data)
+        if parseInt(result.status.split()[0]) >= 400:
+            raise newException(WebpageParseError, "dnsdumpster.com is not responding as expected")
 
 proc getHostTable(str: string): string =
     try:
