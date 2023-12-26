@@ -25,7 +25,7 @@ Domainim is a 🚀 Blazing fast 🚀 domain reconnaissance tool for bounty hunte
 # Features
 Current features (v0.2.1)-
 - Subdomain enumeration (2 engines)
-- Resolving A records
+- Resolving A records (IPv4)
 - Progress tracking
 
 ![](https://i.postimg.cc/zfrqLm1z/image.png)
@@ -54,7 +54,7 @@ nimble build
 ./domainim <domain>
 ```
 
-Or you can just, download the binary from the [release page](https://github.com/pptx704/domainim/releases). Keep in mind that the binary is tested on Debian based systems only.
+Or, you can just download the binary from the [release page](https://github.com/pptx704/domainim/releases). Keep in mind that the binary is tested on Debian based systems only.
 
 # Usage
 
@@ -69,9 +69,11 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 ## Planned Features
 - [ ] Open ports enumeration (v1.0.0)
 - [ ] Give more control to the user by adding flags
+- [ ] Resolve AAAA records (IPv6)
+- [ ] Custom DNS server
+- [ ] Add more engines for subdomain enumeration
 - [ ] File output (probably CSV or JSON)
 - [ ] Multiple domain enumeration
-- [ ] Add more engines for subdomain enumeration
 - [ ] Dir and File busting
 
 ## Others
@@ -83,9 +85,9 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 # Additional Notes
 This project is still in its early stages. There are several limitations I am aware of.
 
-The two engines I am using currently have some sort of response limit. [dnsdumpster](https://dnsdumpster.com) can fetch upto 100 subdomains. [crt.sh](https://crt.sh) also randomizes the results in case of too many results. I am planning to add more engines in the future (at least a brute force engine).
+The two engines I am using (I'm calling them engine because Sublist3r does so) currently have some sort of response limit. [dnsdumpster](https://dnsdumpster.com) can fetch upto 100 subdomains. [crt.sh](https://crt.sh) also randomizes the results in case of too many results. I am planning to add more engines in the future (at least a brute force engine).
 
-It might seem that the way vhostnames are printed, it is just brings repeition on the table.
+It might seem that the way vhostnames are printed, it just brings repeition on the table.
 
 ![](https://i.postimg.cc/HLkC413T/image.png)
 
@@ -98,6 +100,10 @@ ack.nmap.org, issues.nmap.org, nmap.org, research.nmap.org, scannme.nmap.org, sv
 But previously while testing, I found cases where not all IPs are shared by same set of vhostnames. That is why I decided to keep it this way.
 
 ![](https://i.postimg.cc/q7PjB8NW/image.png)
+
+Currently, the program uses system's DNS server to resolve the IPv4 addresses. It would make much more sense if the user could specify the DNS server.
+
+One particular limitation that is bugging me is that the DNS resolver would not return all the IPs for a domain. So it is necessary to make multiple queries to get all (or most) of the IPs. But then again, it is not possible to know how many IPs are there for a domain. I still have to come up with a solution for this.
 
 # Known Bugs
 For now, I have one known bug. In case the sites are too slow (as in doesn't respond within 20s), the program crashes with a timeout error-
