@@ -75,10 +75,10 @@ proc getHostTable(str: string): string =
     except IndexDefect:
         raise newException(WebpageParseError, "A records not found (engine: dnsdumpster.com)")
 
-proc getARecords(response: Response): seq[SubDomain] =  
+proc getARecords(response: Response): seq[string] =  
     var table = getHostTable(response.body)
     for i in findAll(table, subdomainRegEx):
-        result.add(newSubdomain(table[i.group(0)]))
+        result.add(table[i.group(0)])
 
-proc getDDSubs*(url: string): seq[SubDomain] =
+proc getDDSubs*(url: string): seq[string] =
     return getARecords(makeRequest("POST", url))

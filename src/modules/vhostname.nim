@@ -6,30 +6,33 @@ import "../helpers"
 
 let client = initDnsClient("1.1.1.1", Port(53))
 
-proc getVHost(ip: string): Future[IPv4] {.async.} =
-    var vhost: seq[string]
+proc getRDNS(ip: string): Future[(string, string)] {.async.} =
+    var rdns: seq[string]
     try:
-        vhost = await client.asyncResolveRDns(ip)
+        rdns = await client.asyncResolveRDns(ip)
     except TimeoutError:
-        return newIPv4(ip)
-        # echo "Timeout for " & ip
-    if len(vhost) == 0:
-        return newIPv4(ip)
-    return newIPv4(ip, vhost[0])
+        return (ip, "")
+    if len(rdns) == 0:
+        return (ip, "")
+    return (ip, rdns[0])
 
 proc getVHostTable*(subdomains: seq[Subdomain]): Table[string, IPv4] =
-    var futures: seq[Future[IPv4]]
+    var futures: seq[Future[(string, string)]]
     var progress = 0
     for s in subdomains:
         for i in s.ipv4:
-            futures.add(getVHost(i))
+            if i notin result:
+                result[i] = newIPv4(i)
+            result[i].vhostNames.add(s.url)
+            futures.add(getRDNS(i))
             progress += 1
             var pbar = (progress * 50 / len(subdomains)).toInt()
             updateProgress(pbar)
+
     progress = 0
     for i in futures:
         var res = waitFor i
         progress += 1
-        result[res.ip] = res
-        var pbar = (progress * 50 / len(subdomains)).toInt() + 50
+        result[res[0]].rdns = res[1]
+        var pbar = (progress * 50 / len(futures)).toInt() + 50
         updateProgress(pbar)

@@ -31,12 +31,12 @@ proc makeRequest(url: string): Response =
         raise newException(WebpageParseError, "crt.sh is not responding as expected")
 
 
-proc getARecords(response: Response): seq[SubDomain] =
+proc getARecords(response: Response): seq[string] =
     for i in findAll(response.body, rowRegEx):
         var data = response.body[i.boundaries]
         try: 
             data = data[findAll(data, subdomainRegEx)[0].group(0)]
-            var sub = newSubdomain(data)
+            var sub = data
             if sub notin result:
                 result.add(sub)
         except IndexDefect:
@@ -44,5 +44,5 @@ proc getARecords(response: Response): seq[SubDomain] =
     if len(result) == 0:
         raise newException(WebpageParseError, "A records not found (engine: crt.sh)")
 
-proc getCrtSubs*(url: string): seq[SubDomain] =
+proc getCrtSubs*(url: string): seq[string] =
     return getARecords(makeRequest(url))

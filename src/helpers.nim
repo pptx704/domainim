@@ -34,11 +34,13 @@ proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4]) =
             continue
         for ip in s.ipv4:
             styledEcho "  ↳ ", fgGreen, styleUnderscore, ip
-            var vhostname = ips[ip].vhostName
-            if vhostname == "":
+            var vhostnames = ips[ip].vhostNames.join(", ")
+            var rdns = ips[ip].rdns
+            if rdns == "" or vhostnames == "":
                 echo ""
                 continue
-            styledEcho "    ↳ ", styleBright, "Hostname: ", resetStyle, vhostname
+            styledEcho "    ↳ ", styleBright, "Reverse DNS: ", resetStyle, rdns
+            styledEcho "    ↳ ", styleBright, "Virtual Hostnames: ", resetStyle, vhostnames
             # Add open ports
             echo " "
 
@@ -47,7 +49,7 @@ proc startProgress*() =
     printMsg(info, msg)
 
 proc updateProgress*(progress: int) =
-    let prog = (progress/5).toInt
+    let prog = min(20, (progress/5).toInt)
     var msg = "    Progress: " & "█".repeat(prog) & "░".repeat(20 - prog) & " $1%" % $progress
     printUpdate(info, msg)
 

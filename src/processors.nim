@@ -5,7 +5,7 @@ import std/[terminal, sequtils, tables]
 import helpers
 
 proc processSubdomains*(domain: string): seq[Subdomain] =
-    var subdomains: seq[Subdomain]
+    var subdomains: seq[string]
     styledEcho "Provided domain: ", styleUnderscore, domain
     printMsg(info, "[ ] Fetching subdomains (engine: dnsdumpster.com)")
     try:
