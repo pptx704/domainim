@@ -24,7 +24,7 @@ let
 client.headers = newHttpHeaders(headers)
 
 proc makeRequest(url: string): Response =
-    let paramUrl = fmt"{crtUrl}?Identity={url}"#&exclude=expired"
+    let paramUrl = fmt"{crtUrl}?Identity={url}&match==&deduplicate=Y"#&exclude=expired"
     result = client.get(paramUrl)
 
 
