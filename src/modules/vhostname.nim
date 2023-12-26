@@ -4,7 +4,7 @@ import iputils, sfutils
 import ndns
 import "../helpers"
 
-let client = initDnsClient("1.1.1.1", Port(53))
+let client = initSystemDnsClient()
 
 proc getRDNS(ip: string): Future[(string, string)] {.async.} =
     var rdns: seq[string]

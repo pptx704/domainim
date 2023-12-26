@@ -60,7 +60,7 @@ proc resolveAll*(subdomains: seq[string], domain: string): seq[Subdomain] =
             var res = waitFor i
             resTable[res[0]] = resTable[res[0]].concat(res[1])
             resTable[res[0]] = deduplicate(resTable[res[0]])
-        except Exception as e:
+        except Exception:
             continue
     for i in resTable.keys:
         result.add(newSubdomain(i, resTable[i]))
