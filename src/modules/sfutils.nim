@@ -58,3 +58,5 @@ proc resolveAll*(subdomains: seq[Subdomain], domain: string): seq[Subdomain] =
             result.add(sub)
         except Exception:
             continue
+
+type WebpageParseError* = object of CatchableError

@@ -3,7 +3,7 @@
 ## This module parses dnsdumpster to get A records for the given domain
 ## Currently it supports only dnsdumpster.com. 
 
-import std/[httpclient, options]
+import std/[httpclient, options, strutils, net]
 import regex
 import sfutils
 
@@ -23,7 +23,7 @@ let
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    client: HttpClient = newHttpClient(userAgent, timeout=20000) # 10s timeout
+    client: HttpClient = newHttpClient(userAgent, timeout=20000) # 20s timeout
 
 client.headers = newHttpHeaders(headers)
 
@@ -38,8 +38,7 @@ proc getCSRFToken(response: Response): string =
     let token = getFirstGroup(response.body, csrfRegEx)
     if isSome(token):
         return get(token)
-    echo "Could not parse the csrftoken from 'dnsdumpster.com'. Check back later or update RegEx pattern."
-    quit(1)
+    raise newException(WebpageParseError, "Could not parse CSRF token from dnsdumpster")
 
 proc setCookie(response: Response) =
     let 
@@ -48,33 +47,33 @@ proc setCookie(response: Response) =
     if isSome(csrfcookie):
         client.headers["Cookie"] = "csrftoken=" & csrfcookie.get()
         return
-    echo "Could not parse the csrf cookie from 'dnsdumpster.com'. Check back later or update RegEx pattern."
-    quit(1)
-    
+    raise newException(WebpageParseError, "Could not get csrftoken Cookie from dnsdumpster")
 
 proc makeRequest(reqMethod: string, url: string): Response =
     if reqMethod == "GET":
         result = client.get(ddUrl)
     else:
-        let resp = makeRequest("GET", ddUrl)
+        var resp: Response
+        resp = makeRequest("GET", ddUrl)
         try:
             setCookie(resp)
-        except KeyError:
-            echo "Could not fetch cookie from dnsdumpster."
-            quit(1)
+        except KeyError, TimeoutError:
+            raise newException(WebpageParseError, "dnsdumpster.com is not responding as expected")
+
         var data = MultipartData()
         data["csrfmiddlewaretoken"] = getCSRFToken(resp)
         data["targetip"] = url
         data["user"] = "free"
         result = client.post(ddUrl, multipart = data)
+        if parseInt(result.status.split()[0]) >= 400:
+            raise newException(WebpageParseError, "dnsdumpster.com is not responding as expected")
 
 proc getHostTable(str: string): string =
     try:
         let tbl_match = findAll(str, tblRegEx)[2]
         result = $str[tbl_match.boundaries]
     except IndexDefect:
-        echo "Could not parse A record table from 'dnsdumpster.com'. Check back later or check if the domain is correct or update RegEx pattern."
-        quit(1)
+        raise newException(WebpageParseError, "A records not found (engine: dnsdumpster.com)")
 
 proc getARecords(response: Response): seq[SubDomain] =  
     var table = getHostTable(response.body)

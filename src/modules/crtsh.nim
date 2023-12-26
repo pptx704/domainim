@@ -1,6 +1,6 @@
 # Module crtsh
 
-import std/[httpclient, strformat]
+import std/[httpclient, strformat, net]
 import regex
 import sfutils
 
@@ -19,13 +19,16 @@ let
     }
 
 
-    client: HttpClient = newHttpClient(userAgent, timeout=20000) # 10s timeout
+    client: HttpClient = newHttpClient(userAgent, timeout=20000) # 20s timeout
 
 client.headers = newHttpHeaders(headers)
 
 proc makeRequest(url: string): Response =
-    let paramUrl = fmt"{crtUrl}?Identity={url}"#&exclude=expired"
-    result = client.get(paramUrl)
+    try:
+        let paramUrl = fmt"{crtUrl}?Identity={url}&match=="#&exclude=expired"
+        result = client.get(paramUrl)
+    except TimeoutError:
+        raise newException(WebpageParseError, "crt.sh is not responding as expected")
 
 
 proc getARecords(response: Response): seq[SubDomain] =
@@ -37,9 +40,9 @@ proc getARecords(response: Response): seq[SubDomain] =
             if sub notin result:
                 result.add(sub)
         except IndexDefect:
-            echo "Could not find any data for the given domain. Check back later or check if the domain is correct or update RegEx pattern."
-            quit(1)
-
+            raise newException(WebpageParseError, "A records not found (engine: crt.sh)")
+    if len(result) == 0:
+        raise newException(WebpageParseError, "A records not found (engine: crt.sh)")
 
 proc getCrtSubs*(url: string): seq[SubDomain] =
     return getARecords(makeRequest(url))

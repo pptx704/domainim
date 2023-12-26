@@ -1,5 +1,5 @@
 # Module helper
-import std/[terminal, tables]
+import std/[terminal, tables, strutils]
 import modules/[sfutils, iputils]
 
 type MsgType* = enum
@@ -41,3 +41,16 @@ proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4]) =
             styledEcho "    ↳ ", styleBright, "Hostname: ", resetStyle, vhostname
             # Add open ports
             echo " "
+
+proc startProgress*() =
+    var msg = "    Progress: " & "░".repeat(20)
+    printMsg(info, msg)
+
+proc updateProgress*(progress: int) =
+    let prog = (progress/5).toInt
+    var msg = "    Progress: " & "█".repeat(prog) & "░".repeat(20 - prog) & " $1%" % $progress
+    printUpdate(info, msg)
+
+proc finishProgress*(msg: string) =
+    clearLast()
+    printUpdate(success, msg)

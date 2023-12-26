@@ -18,6 +18,8 @@ proc startChecking(domain: string) =
 
 """
     var subdomains = processSubdomains(domain)
+    if len(subdomains) == 0:
+        return
     var iptable = processVHostNames(subdomains)
     printResults(subdomains, iptable)
     
