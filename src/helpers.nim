@@ -36,11 +36,14 @@ proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4]) =
             styledEcho "  ↳ ", fgGreen, styleUnderscore, ip
             var vhostnames = ips[ip].vhostNames.join(", ")
             var rdns = ips[ip].rdns
-            if rdns == "" or vhostnames == "":
+            if rdns == "":
                 echo ""
-                continue
-            styledEcho "    ↳ ", styleBright, "Reverse DNS: ", resetStyle, rdns
-            styledEcho "    ↳ ", styleBright, "Virtual Hostnames: ", resetStyle, vhostnames
+            else:
+                styledEcho "    ↳ ", styleBright, "Reverse DNS: ", resetStyle, rdns
+            if vhostnames == "":
+                echo ""
+            else:
+                styledEcho "    ↳ ", styleBright, "Virtual Hostnames: ", resetStyle, vhostnames
             # Add open ports
             echo " "
 
