@@ -16,23 +16,26 @@
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
   <a href="#contributing">Contributing</a> •
-  <a href="#known-bugs">Known Bugs</a>
+  <a href="#known-bugs">Known Bugs</a> •
+  <a href="#additional-notes">Additional Notes</a>
 </p>
 
 Domainim is a 🚀 Blazing fast 🚀 domain reconnaissance tool for bounty hunters written in Nim.
 
 # Features
-Current features (v0.2.0)-
+Current features (v0.2.1)-
 - Subdomain enumeration (2 engines)
 - Resolving A records
 - Progress tracking
 
 ![](https://i.postimg.cc/zfrqLm1z/image.png)
 
-- Resolving Virtual Host Names (using PTR records)
+- Virtual hostname enumeration
+- Reverse DNS lookup
+- Subdomains as input
 - Verbose output
 
-![](https://i.postimg.cc/Fz878PkY/image.png)
+![](https://i.postimg.cc/xThMM9RS/image.png)
 
 A few features are work in progress. See [Planned features](#planned-features) for more details.
 
@@ -76,6 +79,25 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 - [x] Show progress bar for longer operations
 - [ ] Add tests
 - [ ] Add comments and docstrings
+
+# Additional Notes
+This project is still in its early stages. There are several limitations I am aware of.
+
+The two engines I am using currently have some sort of response limit. [dnsdumpster](https://dnsdumpster.com) can fetch upto 100 subdomains. [crt.sh](https://crt.sh) also randomizes the results in case of too many results. I am planning to add more engines in the future (at least a brute force engine).
+
+It might seem that the way vhostnames are printed, it is just brings repeition on the table.
+
+![](https://i.postimg.cc/HLkC413T/image.png)
+
+Printing as the following might've been better-
+```
+ack.nmap.org, issues.nmap.org, nmap.org, research.nmap.org, scannme.nmap.org, svn.nmap.org, www.nmap.org
+  ↳ 45.33.49.119
+    ↳ Reverse DNS: ack.nmap.org. 
+```
+But previously while testing, I found cases where not all IPs are shared by same set of vhostnames. That is why I decided to keep it this way.
+
+![](https://i.postimg.cc/q7PjB8NW/image.png)
 
 # Known Bugs
 For now, I have one known bug. In case the sites are too slow (as in doesn't respond within 20s), the program crashes with a timeout error-
