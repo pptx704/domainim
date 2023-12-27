@@ -23,21 +23,24 @@
 Domainim is a 🚀 Blazing fast 🚀 domain reconnaissance tool for bounty hunters written in Nim.
 
 # Features
-Current features (v0.2.1)-
+Current features (v1.0.0-beta)-
 - Subdomain enumeration (2 engines)
 - Resolving A records (IPv4)
 - Progress tracking
 
-![](https://i.postimg.cc/zfrqLm1z/image.png)
+![](https://i.postimg.cc/rsjqrNXn/image.png)
 
 - Virtual hostname enumeration
 - Reverse DNS lookup
 - Subdomains as input
 - Verbose output
+- TCP port scanning with full user control
 
-![](https://i.postimg.cc/xThMM9RS/image.png)
+![](https://i.postimg.cc/x8JGCN3J/image.png)
 
 A few features are work in progress. See [Planned features](#planned-features) for more details.
+
+The project is inspired by [Sublist3r](https://github.com/aboul3la/Sublist3r). The port scanner module is heavily based on [NimScan](https://github.com/elddy/NimScan).
 
 # Installation
 You can build this repo from source-
@@ -51,7 +54,7 @@ nimble build
 ```
 - Run the binary
 ```bash
-./domainim <domain>
+./domainim <domain> [--ports=<ports>]
 ```
 
 Or, you can just download the binary from the [release page](https://github.com/pptx704/domainim/releases). Keep in mind that the binary is tested on Debian based systems only.
@@ -59,16 +62,30 @@ Or, you can just download the binary from the [release page](https://github.com/
 # Usage
 
 ```bash
-./domainim <domain>
+./domainim <domain> [--ports=<ports>]
 ```
+- `<domain>` is the domain to be enumerated. It can be a subdomain as well.
+- `<ports>` is a string speicification of the ports to be scanned. It can be one of the following-
+  - `all` - Scan all ports (1-65535)
+  - `none` - Skip port scanning
+  - `t<n>` - Scan top n ports (same as `nmap`). i.e. `t100` scans top 100 ports
+  - `single value` - Scan a single port. i.e. `80` scans port 80
+  - `range value` - Scan a range of ports. i.e. `80-100` scans ports 80 to 100
+  - `comma separated values` - Scan multiple ports. i.e. `80,443,8080` scans ports 80, 443 and 8080
+  - `combination` - Scan a combination of the above. i.e. `80,443,8080-8090,t500` scans ports 80, 443, 8080 to 8090 and top 500 ports
 
+**Examples**
+- `./domainim nmap.org --ports=all`
+- `./domainim google.com --ports=none`
+- `./domainim pptx704.com --ports=t100`
+- `./domainim mysite.com --ports=t50,5432,7000-9000`
 
 # Contributing
 Contributions are welcome. Feel free to open a pull request or an issue.
 
 ## Planned Features
-- [ ] Open ports enumeration (v1.0.0)
-- [ ] Give more control to the user by adding flags
+- [x] TCP port scanning
+- [ ] UDP port scanning support
 - [ ] Resolve AAAA records (IPv6)
 - [ ] Custom DNS server
 - [ ] Add more engines for subdomain enumeration
@@ -79,6 +96,7 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 ## Others
 - [x] Update verbose output when encountering errors (v0.2.0)
 - [x] Show progress bar for longer operations
+- [ ] Add individual port scan progress bar
 - [ ] Add tests
 - [ ] Add comments and docstrings
 
@@ -86,6 +104,8 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 This project is still in its early stages. There are several limitations I am aware of.
 
 The two engines I am using (I'm calling them engine because Sublist3r does so) currently have some sort of response limit. [dnsdumpster](https://dnsdumpster.com) can fetch upto 100 subdomains. [crt.sh](https://crt.sh) also randomizes the results in case of too many results. I am planning to add more engines in the future (at least a brute force engine).
+
+The port scanner has only `ping response time + 750ms` timeout. This might lead to false negatives. Since, **domainim** is not meant for port scanning but to provide a quick overview such cases are acceptable. However, I am planning to add a flag to increase the timeout. For the same reason, filtered ports are not shown. For more comprehensive port scanning, I recommend using [NimScan](https://nmap.org). This also doesn't bypass rate limiting (if there is any).
 
 It might seem that the way vhostnames are printed, it just brings repeition on the table.
 
