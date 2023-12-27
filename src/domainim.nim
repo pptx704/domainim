@@ -1,4 +1,4 @@
-import std/[parseopt, os, strformat]
+import std/[parseopt, os, strformat, terminal]
 import processors, helpers
 
 let 
@@ -24,9 +24,9 @@ proc startChecking(domain: string, portStr: string) =
         ports = processPortString(portStr)
     except:
         echo "Invalid port specification. Example of proper form: 't10,5432,53,100-150'"
-        return
 
     echo banner
+    styledEcho "Provided domain: ", styleUnderscore, domain
     let subdomains = processSubdomains(domain)
     if len(subdomains) == 0:
         return

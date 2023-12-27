@@ -1,7 +1,7 @@
 # Module processors
 
 import modules/[subfinder, vhostname, iputils, scanner, scannerutils]
-import std/[terminal, sequtils, tables, posix, strutils]
+import std/[sequtils, tables, posix, strutils]
 import helpers
 
 # Change file descriptor limit
@@ -12,11 +12,10 @@ discard setrlimit(RLIMIT_NOFILE, rlimit)
 
 proc processSubdomains*(domain: string): seq[Subdomain] =
     var subdomains: seq[string]
-    styledEcho "Provided domain: ", styleUnderscore, domain
     printMsg(info, "[ ] Fetching subdomains (engine: dnsdumpster.com)")
     try:
         subdomains = getDDSubs(domain)
-        printUpdate(success, "[+] Fetched subdomains (engine: dnsdupster.com)")
+        printUpdate(success, "[+] Fetched subdomains (engine: dnsdumpster.com)")
     except WebpageParseError as e:
         printUpdate(error, "[-] " & e.msg)
     printMsg(info, "[ ] Fetching subdomains (engine: crt.sh)")
@@ -41,7 +40,7 @@ proc processVHostNames*(subdomains: seq[Subdomain]): Table[string, IPv4] =
 proc processOpenPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string, IPv4] =
     if len(ports) == 0:
         return ips
-    printMsg(info, "[ ] Scanning ports")
+    printMsg(info, "[ ] Scanning ports ($1 IP(s), $2 ports for each ip)" % [$ips.len, $ports.len])
     var 
         prog: int = 0
         pbar: int = 0

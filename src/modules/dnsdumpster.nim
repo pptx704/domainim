@@ -64,7 +64,10 @@ proc makeRequest(reqMethod: string, url: string): Response =
         data["csrfmiddlewaretoken"] = getCSRFToken(resp)
         data["targetip"] = url
         data["user"] = "free"
-        result = client.post(ddUrl, multipart = data)
+        try:
+            result = client.post(ddUrl, multipart = data)
+        except TimeoutError:
+            raise newException(WebpageParseError, "dnsdumpster.com is not responding as expected")
         if parseInt(result.status.split()[0]) >= 400:
             raise newException(WebpageParseError, "dnsdumpster.com is not responding as expected")
 
