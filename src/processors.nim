@@ -1,6 +1,6 @@
 # Module processors
 
-import modules/[subfinder, vhostname, iputils, scanner]
+import modules/[subfinder, vhostname, iputils, scanner, scannerutils]
 import std/[terminal, sequtils, tables, posix, strutils]
 import helpers
 
@@ -39,6 +39,8 @@ proc processVHostNames*(subdomains: seq[Subdomain]): Table[string, IPv4] =
     finishProgress("[+] Retreived virtual hostnames")
 
 proc processOpenPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string, IPv4] =
+    if len(ports) == 0:
+        return ips
     printMsg(info, "[ ] Scanning ports")
     var 
         prog: int = 0
@@ -50,4 +52,9 @@ proc processOpenPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string,
         result[ip] = addOpenPorts(ips[ip], ports)
         prog += 1
         pbar = (prog * 100 / len(ips)).toInt()
-    finishProgress("[+] Retreived virtual hostnames")
+    finishProgress("[+] Scanned open ports")
+
+proc processPortString*(portStr: string): seq[int] =
+    if portStr == "":
+        return parsePorts("t500")        
+    return parsePorts(portStr)

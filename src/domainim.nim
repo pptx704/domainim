@@ -1,9 +1,9 @@
-import std/[parseopt, os, strformat, sequtils]
+import std/[parseopt, os, strformat]
 import processors, helpers
 
-
-proc startChecking(domain: string) =
-    echo """
+let 
+    usage = fmt"Usage ./{getAppFilename().extractFilename} <domain> [--ports=<ports>]"
+    banner = """
 
 ▓█████▄  ▒█████   ███▄ ▄███▓ ▄▄▄       ██▓ ███▄    █  ██▓ ███▄ ▄███▓
 ▒██▀ ██▌▒██▒  ██▒▓██▒▀█▀ ██▒▒████▄    ▓██▒ ██ ▀█   █ ▓██▒▓██▒▀█▀ ██▒
@@ -17,27 +17,51 @@ proc startChecking(domain: string) =
  ░  
 
 """
-    var subdomains = processSubdomains(domain)
+
+proc startChecking(domain: string, portStr: string) =
+    var ports: seq[int]
+    try:
+        ports = processPortString(portStr)
+    except:
+        echo "Invalid port specification. Example of proper form: 't10,5432,53,100-150'"
+        return
+
+    echo banner
+    let subdomains = processSubdomains(domain)
     if len(subdomains) == 0:
         return
     var iptable = processVHostNames(subdomains)
-    iptable = processOpenPorts(iptable, toSeq 1..65535)
+    printPorts(portStr)
+    iptable = processOpenPorts(iptable, ports)
     printResults(subdomains, iptable)
     
 
 proc main =
-    var p = initOptParser(quoteShellCommand(commandLineParams()))
-    if paramCount() != 1:
-        echo fmt"Usage ./{getAppFilename().extractFilename} domain"
+    var 
+        ports = ""
+        p = initOptParser(quoteShellCommand(commandLineParams()))
+        domain: string
+    if paramCount() == 0:
+        echo usage
         return
     while true:
         p.next()
         case p.kind
         of cmdEnd: break
         of cmdArgument:
-            startChecking(p.key)
+            if domain != "":
+                echo usage
+                return
+            domain = p.key
+        of cmdLongOption:
+            if p.key != "ports":
+                echo usage
+                return
+            ports = p.val
         else:
-            break
+            echo usage
+            return
+    startChecking(domain, ports)
 
 when isMainModule:
     main()

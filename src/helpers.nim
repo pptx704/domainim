@@ -26,7 +26,7 @@ proc printUpdate* (msgtype: MsgType, msg: string) =
     printMsg(msgtype, msg)
 
 proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4]) =
-    printMsg(neutral, "\n[*] Printing results\n")
+    printMsg(neutral, "[*] Printing results\n")
     for s in subdomains:
         styledEcho styleUnderscore, s.url
         if not s.isAlive:
@@ -64,3 +64,11 @@ proc updateProgress*(progress: int, msg: string = "") =
 proc finishProgress*(msg: string) =
     clearLast()
     printUpdate(success, msg)
+
+proc printPorts*(portStr: string) =
+    if portStr == "all":
+        printMsg(neutral, "[*] All ports are being scanned. This will take some times.")
+    elif portStr == "none":
+        printMsg(neutral, "[*] Port scanning is turened off.")
+    elif portStr == "":
+        printMsg(neutral, "[*] Port specification not provided. Nmap top 500 ports will be checked.")

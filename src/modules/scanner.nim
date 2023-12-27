@@ -1,12 +1,12 @@
 # module scanner
 
 import std/[strutils, asyncnet, asyncdispatch, net, nativesockets, random, sequtils, os]
-import iputils
+import scannerutils
 
 var
     openPorts: array[1..65535, int]
     countOpen = 0
-    timeout = 500
+    timeout = 750
     maxThreads = 2
     toScan = 0
     fileDesc = 1024
@@ -29,7 +29,7 @@ proc connect(ip: string, port: int) {.async.} =
             discard
 
 proc scan(ip: cstring, port_seq: seq[int]) {.async.} =
-    for dist in port_seq.distribute((port_seq.len / fileDesc).toInt):
+    for dist in port_seq.distribute(max(1, (port_seq.len / fileDesc).toInt)):
         var sockops = newseq[Future[void]](port_seq.len)
         for i in low(dist)..high(dist):
             sockops[i] = connect($ip, port_seq[i])
@@ -40,7 +40,7 @@ proc scannerThread(supSocket: SuperSocket) {.thread.} =
         host = supSocket.IP
         port_seq = supSocket.ports
 
-    shuffle(port_seq) ## Shuffle ports order
+    shuffle(port_seq) ## Shuffle ports ordere
     waitFor scan(host, port_seq)
 
 
@@ -49,9 +49,8 @@ proc scanPorts*(host: string, targetPorts: seq[int]): seq[int] =
         thr: seq[Thread[SuperSocket]] = newSeq[Thread[SuperSocket]](maxThreads)
         ip: string
         ms: int
-    
+    division = max(1, (targetPorts.len/fileDesc).toInt)
     ip = host
-
     
     for p in targetPorts:
         openPorts[p] = -1
