@@ -1,13 +1,10 @@
 <h1 align="center">DOMAINIM</h1>
 <p align="center">
-<img src=https://img.shields.io/github/languages/top/pptx704/domainim
->
 <img src=https://img.shields.io/badge/OS-Debian_Linux-blue>
-<img src=https://img.shields.io/github/languages/code-size/pptx704/domainim>
 <img src=https://img.shields.io/github/stars/pptx704/domainim>
-<img src=https://img.shields.io/github/v/release/pptx704/domainim
->
+<img src=https://img.shields.io/github/v/release/pptx704/domainim>
 <a href="#license"><img src=https://img.shields.io/github/license/pptx704/domainim></a>
+<a href="https://t.me/pptx704"><img src=https://img.shields.io/badge/Contact-telegram-blue></a>
 </p>
 
 <p align="center">
@@ -16,19 +13,18 @@
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
   <a href="#contributing">Contributing</a> •
-  <a href="#known-bugs">Known Bugs</a> •
   <a href="#additional-notes">Additional Notes</a>
 </p>
 
 Domainim is a 🚀 Blazing fast 🚀 domain reconnaissance tool for bounty hunters written in Nim.
 
 # Features
-Current features (v1.0.0-beta)-
+Current features (v1.0.1)-
 - Subdomain enumeration (2 engines)
 - Resolving A records (IPv4)
 - Progress tracking
 
-![](https://i.postimg.cc/rsjqrNXn/image.png)
+![](https://i.postimg.cc/W13H5Dpt/image.png)
 
 - Virtual hostname enumeration
 - Reverse DNS lookup
@@ -36,7 +32,7 @@ Current features (v1.0.0-beta)-
 - Verbose output
 - TCP port scanning with full user control
 
-![](https://i.postimg.cc/x8JGCN3J/image.png)
+![](https://i.postimg.cc/Jz49S6xr/image.png)
 
 A few features are work in progress. See [Planned features](#planned-features) for more details.
 
@@ -68,10 +64,10 @@ Or, you can just download the binary from the [release page](https://github.com/
 - `<ports>` is a string speicification of the ports to be scanned. It can be one of the following-
   - `all` - Scan all ports (1-65535)
   - `none` - Skip port scanning
-  - `t<n>` - Scan top n ports (same as `nmap`). i.e. `t100` scans top 100 ports
-  - `single value` - Scan a single port. i.e. `80` scans port 80
-  - `range value` - Scan a range of ports. i.e. `80-100` scans ports 80 to 100
-  - `comma separated values` - Scan multiple ports. i.e. `80,443,8080` scans ports 80, 443 and 8080
+  - `t<n>` - Scan top n ports (same as `nmap`). i.e. `t100` scans top 100 ports. Max value is 5000. If n is greater than 5000, it will be set to 5000.
+  - single value - Scan a single port. i.e. `80` scans port 80
+  - range value - Scan a range of ports. i.e. `80-100` scans ports 80 to 100
+  - comma separated values - Scan multiple ports. i.e. `80,443,8080` scans ports 80, 443 and 8080
   - `combination` - Scan a combination of the above. i.e. `80,443,8080-8090,t500` scans ports 80, 443, 8080 to 8090 and top 500 ports
 
 **Examples**
@@ -124,14 +120,6 @@ But previously while testing, I found cases where not all IPs are shared by same
 Currently, the program uses system's DNS server to resolve the IPv4 addresses. It would make much more sense if the user could specify the DNS server.
 
 One particular limitation that is bugging me is that the DNS resolver would not return all the IPs for a domain. So it is necessary to make multiple queries to get all (or most) of the IPs. But then again, it is not possible to know how many IPs are there for a domain. I still have to come up with a solution for this.
-
-# Known Bugs
-For now, I have one known bug. In case the sites are too slow (as in doesn't respond within 20s), the program crashes with a timeout error-
-```
-net.nim(1475)            waitFor
-Error: unhandled exception: Call to 'readLine' timed out. [TimeoutError]
-```
-This is not an expected behaviour since try-except blocks are used to handle this error. I am still trying to figure out the cause of this error.
 
 # License
 MIT License. See [LICENSE](LICENSE) for full text.
