@@ -1,4 +1,4 @@
-import std/[parseopt, os, strformat]
+import std/[parseopt, os, strformat, sequtils]
 import processors, helpers
 
 
@@ -21,6 +21,7 @@ proc startChecking(domain: string) =
     if len(subdomains) == 0:
         return
     var iptable = processVHostNames(subdomains)
+    iptable = processOpenPorts(iptable, toSeq 1..65535)
     printResults(subdomains, iptable)
     
 

@@ -1,8 +1,14 @@
 # Module processors
 
-import modules/[subfinder, vhostname, iputils]
-import std/[terminal, sequtils, tables]
+import modules/[subfinder, vhostname, iputils, scanner]
+import std/[terminal, sequtils, tables, posix, strutils]
 import helpers
+
+# Change file descriptor limit
+var rlimit = RLimit()
+discard getrlimit(RLIMIT_NOFILE, rlimit)
+rlimit.rlim_cur = 65535
+discard setrlimit(RLIMIT_NOFILE, rlimit)
 
 proc processSubdomains*(domain: string): seq[Subdomain] =
     var subdomains: seq[string]
@@ -30,4 +36,18 @@ proc processVHostNames*(subdomains: seq[Subdomain]): Table[string, IPv4] =
     printMsg(info, "[ ] Querying virtual hostnames")
     startProgress()
     result = getVHostTable(subdomains)
+    finishProgress("[+] Retreived virtual hostnames")
+
+proc processOpenPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string, IPv4] =
+    printMsg(info, "[ ] Scanning ports")
+    var 
+        prog: int = 0
+        pbar: int = 0
+    startProgress()
+    for ip in ips.keys:
+        updateProgress(pbar, " ($1)" % ip)
+        var ports = scanPorts(ip, ports)
+        result[ip] = addOpenPorts(ips[ip], ports)
+        prog += 1
+        pbar = (prog * 100 / len(ips)).toInt()
     finishProgress("[+] Retreived virtual hostnames")
