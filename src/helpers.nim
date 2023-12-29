@@ -71,4 +71,4 @@ proc printPorts*(portStr: string) =
     elif portStr == "none":
         printMsg(neutral, "[*] Port scanning is turened off.")
     elif portStr == "":
-        printMsg(neutral, "[*] Port specification not provided. Nmap top 500 ports will be checked.")
+        printMsg(neutral, "[*] Port specification not provided. Port scanning will be skipped.")

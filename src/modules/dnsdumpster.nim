@@ -54,8 +54,8 @@ proc makeRequest(reqMethod: string, url: string): Response =
         result = client.get(ddUrl)
     else:
         var resp: Response
-        resp = makeRequest("GET", ddUrl)
         try:
+            resp = makeRequest("GET", ddUrl)
             setCookie(resp)
         except KeyError, TimeoutError:
             raise newException(WebpageParseError, "dnsdumpster.com is not responding as expected")

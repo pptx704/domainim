@@ -7,7 +7,7 @@ import helpers
 # Change file descriptor limit
 var rlimit = RLimit()
 discard getrlimit(RLIMIT_NOFILE, rlimit)
-rlimit.rlim_cur = 65535
+rlimit.rlim_cur = rlimit.rlim_max-1
 discard setrlimit(RLIMIT_NOFILE, rlimit)
 
 proc processSubdomains*(domain: string): seq[Subdomain] =
@@ -40,7 +40,7 @@ proc processVHostNames*(subdomains: seq[Subdomain]): Table[string, IPv4] =
 proc processOpenPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string, IPv4] =
     if len(ports) == 0:
         return ips
-    printMsg(info, "[ ] Scanning ports ($1 IP(s), $2 ports for each ip)" % [$ips.len, $ports.len])
+    printMsg(info, "[ ] Scanning ports ($1 ports for each ip)" % $ports.len)
     var 
         prog: int = 0
         pbar: int = 0
@@ -55,5 +55,5 @@ proc processOpenPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string,
 
 proc processPortString*(portStr: string): seq[int] =
     if portStr == "":
-        return parsePorts("t500")        
+        return parsePorts("none")        
     return parsePorts(portStr)

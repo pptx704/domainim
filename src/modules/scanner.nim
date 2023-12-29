@@ -9,7 +9,7 @@ var
     timeout = 750
     maxThreads = 2
     toScan = 0
-    fileDesc = 1024
+    fileDesc = 2048
     division = (65535/fileDesc).toInt
 
 randomize()
@@ -28,20 +28,20 @@ proc connect(ip: string, port: int) {.async.} =
         except:
             discard
 
-proc scan(ip: cstring, port_seq: seq[int]) {.async.} =
-    for dist in port_seq.distribute(max(1, (port_seq.len / fileDesc).toInt)):
-        var sockops = newseq[Future[void]](port_seq.len)
+proc scan(ip: cstring, portSeq: seq[int]) {.async.} =
+    for dist in portSeq.distribute(max(1, (portSeq.len / fileDesc).toInt)):
+        var sockops = newseq[Future[void]](portSeq.len)
         for i in low(dist)..high(dist):
-            sockops[i] = connect($ip, port_seq[i])
+            sockops[i] = connect($ip, portSeq[i])
         waitFor all(sockops)
    
 proc scannerThread(supSocket: SuperSocket) {.thread.} =
     var
         host = supSocket.IP
-        port_seq = supSocket.ports
+        portSeq = supSocket.ports
 
-    shuffle(port_seq) ## Shuffle ports ordere
-    waitFor scan(host, port_seq)
+    shuffle(portSeq) ## Shuffle ports ordere
+    waitFor scan(host, portSeq)
 
 
 proc scanPorts*(host: string, targetPorts: seq[int]): seq[int] =
@@ -64,7 +64,6 @@ proc scanPorts*(host: string, targetPorts: seq[int]): seq[int] =
     toScan = targetPorts.len
 
     for ports in targetPorts.distribute(division):
-        ## Start scanning
         block current_ports:
             while true:
                 for i in low(thr)..high(thr):

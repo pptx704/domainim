@@ -28,7 +28,7 @@ proc clean(sub: string, target: string): string =
     var data = sub.strip(trailing=false, chars = {'.', '*'})
     if target notin data:
         return ""
-    if target != data and ("." & target) notin data:
+    if target != data and not data.endsWith("." & target):
         return ""
     return data
 
