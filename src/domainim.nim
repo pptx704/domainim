@@ -18,7 +18,7 @@ let
 
 """
 
-proc startChecking(domain: string, portStr: string) =
+proc startChecking(domain: string, portStr: string, dnsStr: string) =
     var ports: seq[int]
     try:
         ports = processPortString(portStr)
@@ -41,6 +41,7 @@ proc main =
         ports = ""
         p = initOptParser(quoteShellCommand(commandLineParams()))
         domain: string
+        dns = ""
     if paramCount() == 0:
         echo usage
         return
@@ -54,14 +55,18 @@ proc main =
                 return
             domain = p.key
         of cmdLongOption:
-            if p.key != "ports":
+            case p.key
+            of "ports":
+                ports = p.val
+            of "dns":
+                dns = p.val
+            else:
                 echo usage
                 return
-            ports = p.val
         else:
             echo usage
             return
-    startChecking(domain, ports)
+    startChecking(domain, ports, dns)
 
 when isMainModule:
     main()

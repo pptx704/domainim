@@ -1,6 +1,6 @@
 # Module vhost
 import std/[tables, asyncdispatch]
-import iputils, sfutils
+import iputils, subfinder
 import ndns
 import "../helpers"
 

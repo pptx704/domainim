@@ -5,7 +5,7 @@
 
 import std/[httpclient, options, strutils, net]
 import regex
-import sfutils
+import utils
 
 const 
     ddUrl = "https://dnsdumpster.com/"

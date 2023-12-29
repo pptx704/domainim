@@ -1,4 +1,4 @@
 # Module subfinder
 
-import sfutils, dnsdumpster, crtsh
-export sfutils, dnsdumpster, crtsh
+import sf/[utils, dnsdumpster, crtsh]
+export utils, dnsdumpster, crtsh

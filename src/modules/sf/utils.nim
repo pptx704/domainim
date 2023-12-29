@@ -2,7 +2,7 @@
 
 import std/[asyncdispatch, strutils, algorithm, sequtils, tables] # Importing modules from stdlib
 import ndns
-import iputils
+import "../iputils"
 
 type
     Subdomain* = object

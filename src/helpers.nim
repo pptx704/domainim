@@ -1,6 +1,6 @@
 # Module helper
 import std/[terminal, tables, strutils]
-import modules/[sfutils, iputils]
+import modules/[subfinder, iputils]
 
 type MsgType* = enum
     info, success, error, neutral

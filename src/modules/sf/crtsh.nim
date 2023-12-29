@@ -2,7 +2,7 @@
 
 import std/[httpclient, strformat, net]
 import regex
-import sfutils
+import utils
 
 const 
     crtUrl = "https://crt.sh/"
