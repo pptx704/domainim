@@ -49,6 +49,7 @@ proc processSubdomains*(domain: string, dnsStr: string, sbList: string, throttle
             bruteSubs = subBrute(sbList, domain, dnsStr, throttle)
             finishProgress("[+] Subdomain bruteforcing completed.")
         except WildcardError as e:
+            clearLast()
             printUpdate(error, "[-] " & e.msg)
     else:
         printMsg(neutral, "[*] Skipping subdomain bruteforcing.")

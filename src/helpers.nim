@@ -5,7 +5,7 @@ type MsgType* = enum
     info, success, error, neutral
 
 
-proc clearLast() = 
+proc clearLast*() = 
     cursorUp 1
     eraseLine()
 
