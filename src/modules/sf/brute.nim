@@ -36,7 +36,7 @@ proc subBrute*(wordlist: string, domain: string, dns: string = "", throttle: int
     var client = createDnsClient(dns)
 
     if checkWildcard(domain, client):
-        raise newException(WildcardError, "$1 seems to have a wildcard record. Skipping bruteforcing." % domain)
+        raise newException(WildcardError, "$1 seems to have a wildcard record. Bruteforcing will be skipped." % domain)
 
     var 
         subs: seq[string]
