@@ -16,7 +16,7 @@
   <a href="#additional-notes">Additional Notes</a>
 </p>
 
-Domainim is a fast domain reconnaissance tool for bounty hunters written in Nim.
+Domainim is a fast domain reconnaissance tool for organizational network scanning. The tool aims to provide a brief overview of an organization's structure using techniques like OSINT, bruteforcing, DNS resolving etc.
 
 # Features
 Current features (v1.0.1)-
@@ -26,13 +26,13 @@ Current features (v1.0.1)-
 
 ![](https://i.postimg.cc/596nWXrv/image.png)
 
-- Detects wildcard subdomains (for bruteforcing)
 - Virtual hostname enumeration
 - Reverse DNS lookup
 - Subdomains are accepted as input
 
 ![](https://i.postimg.cc/gcyMzCDq/image.png)
 
+- Detects wildcard subdomains (for bruteforcing)
 - Basic TCP port scanning
 
 ![](https://i.postimg.cc/Vk31BmS4/image.png)
