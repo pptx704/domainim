@@ -12,6 +12,8 @@ proc getRDNS(ip: string): Future[(string, string)] {.async.} =
         rdns = await client.asyncResolveRDns(ip)
     except TimeoutError:
         return (ip, "")
+    except ResponseIdNotEqualError:
+        rdns = await client.asyncResolveRDns(ip)
     if len(rdns) == 0:
         return (ip, "")
     return (ip, rdns[0])
@@ -25,14 +27,13 @@ proc getVHostTable*(subdomains: seq[Subdomain]): Table[string, IPv4] =
                 result[i] = newIPv4(i)
             result[i].vhostNames.add(s.url)
             futures.add(getRDNS(i))
-            progress += 1
-            var pbar = (progress * 50 / len(subdomains)).toInt()
-            updateProgress(pbar)
+            inc(progress)
+            updateProgress((progress/2).toInt, futures.len)
 
     progress = 0
     for i in futures:
         var res = waitFor i
-        progress += 1
+        inc(progress)
         result[res[0]].rdns = res[1]
-        var pbar = (progress * 50 / len(futures)).toInt() + 50
-        updateProgress(pbar)
+        var pbar = (progress/2 + futures.len/2).toInt
+        updateProgress(pbar, futures.len)

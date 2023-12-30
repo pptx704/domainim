@@ -31,7 +31,7 @@ proc makeRequest(url: string): Response =
         raise newException(WebpageParseError, "crt.sh is not responding as expected")
 
 
-proc getARecords(response: Response): seq[string] =
+proc getARecords(response: Response, target: string): seq[string] =
     for i in findAll(response.body, rowRegEx):
         var data = response.body[i.boundaries]
         try: 
@@ -41,8 +41,9 @@ proc getARecords(response: Response): seq[string] =
                 result.add(sub)
         except IndexDefect:
             raise newException(WebpageParseError, "A records not found (engine: crt.sh)")
+    result = cleanAll(result, target) # crtsh sometimes provide unnecessary urls. cleaning is needed here
     if len(result) == 0:
         raise newException(WebpageParseError, "A records not found (engine: crt.sh)")
 
 proc getCrtSubs*(url: string): seq[string] =
-    return getARecords(makeRequest(url))
+    return getARecords(makeRequest(url), url)

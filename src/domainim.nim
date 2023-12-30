@@ -1,8 +1,8 @@
-import std/[parseopt, os, strformat, terminal]
-import processors, helpers
+import std/[parseopt, os, strformat, terminal, strutils]
+import processors, helpers, results
 
 let 
-    usage = fmt"Usage ./{getAppFilename().extractFilename} <domain> [--ports=<ports>]"
+    usage = fmt"Usage ./{getAppFilename().extractFilename} <domain> [--ports=<ports> | -p:ports] [--wordlist=<filename>] [--dns=<ip>[#port]] [--throttle=<int>]"
     banner = """
 
 ▓█████▄  ▒█████   ███▄ ▄███▓ ▄▄▄       ██▓ ███▄    █  ██▓ ███▄ ▄███▓
@@ -18,7 +18,7 @@ let
 
 """
 
-proc startChecking(domain: string, portStr: string, dnsStr: string) =
+proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: string, throttle: int) =
     var ports: seq[int]
     try:
         ports = processPortString(portStr)
@@ -27,7 +27,7 @@ proc startChecking(domain: string, portStr: string, dnsStr: string) =
 
     echo banner
     styledEcho "Provided domain: ", styleUnderscore, domain
-    let subdomains = processSubdomains(domain)
+    let subdomains = processSubdomains(domain, dnsStr, sbList, throttle)
     if len(subdomains) == 0:
         return
     var iptable = processVHostNames(subdomains)
@@ -42,6 +42,8 @@ proc main =
         p = initOptParser(quoteShellCommand(commandLineParams()))
         domain: string
         dns = ""
+        sbList = ""
+        throttle: int = 1000
     if paramCount() == 0:
         echo usage
         return
@@ -60,13 +62,41 @@ proc main =
                 ports = p.val
             of "dns":
                 dns = p.val
+            of "wordlist":
+                sbList = p.val
+            of "throttle":
+                try:
+                    throttle = p.val.parseInt
+                except:
+                    echo usage
+                    return
+            of "help":
+                printHelp()
+                return
             else:
                 echo usage
                 return
-        else:
-            echo usage
-            return
-    startChecking(domain, ports, dns)
+        of cmdShortOption:
+            case p.key:
+            of "p":
+                ports = p.val
+            of "d":
+                dns = p.val
+            of "l":
+                sbList = p.val
+            of "t":
+                try:
+                    throttle = p.val.parseInt
+                except:
+                    echo usage
+                    return
+            of "h":
+                printHelp()
+                return
+            else:
+                echo usage
+                return
+    startChecking(domain, ports, dns, sbList, throttle)
 
 when isMainModule:
     main()
