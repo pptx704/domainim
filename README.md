@@ -16,24 +16,26 @@
   <a href="#additional-notes">Additional Notes</a>
 </p>
 
-Domainim is a 🚀 Blazing fast 🚀 domain reconnaissance tool for bounty hunters written in Nim.
+Domainim is a fast domain reconnaissance tool for bounty hunters written in Nim.
 
 # Features
 Current features (v1.0.1)-
 - Subdomain enumeration (2 engines + bruteforcing)
-- Resolving A records (IPv4)
 - User-friendly output
+- Resolving A records (IPv4)
+
+![](https://i.postimg.cc/596nWXrv/image.png)
+
 - Detects wildcard subdomains (for bruteforcing)
-
-![](https://i.postimg.cc/W13H5Dpt/image.png)
-
 - Virtual hostname enumeration
 - Reverse DNS lookup
-- Subdomains as input
-- TCP port scanning with full user control
 - Subdomains are accepted as input
 
-![](https://i.postimg.cc/Jz49S6xr/image.png)
+![](https://i.postimg.cc/gcyMzCDq/image.png)
+
+- Basic TCP port scanning
+
+![](https://i.postimg.cc/Vk31BmS4/image.png)
 
 A few features are work in progress. See [Planned features](#planned-features) for more details.
 
@@ -59,26 +61,45 @@ Or, you can just download the binary from the [release page](https://github.com/
 # Usage
 
 ```
-./domainim <domain> [--ports=<ports>] [--dns=<dns>]
+./domainim <domain> [--ports=<ports> | -p] [--dns=<dns> | -d:<dns>] [--wordlist=<filename> | -l:<filename>] [--throttle=<int> | -t:<int>]
 ```
 - `<domain>` is the domain to be enumerated. It can be a subdomain as well.
-- `<ports>` is a string speicification of the ports to be scanned. It can be one of the following-
+- `-- ports | -p` is a string speicification of the ports to be scanned. It can be one of the following-
   - `all` - Scan all ports (1-65535)
   - `none` - Skip port scanning (default)
   - `t<n>` - Scan top n ports (same as `nmap`). i.e. `t100` scans top 100 ports. Max value is 5000. If n is greater than 5000, it will be set to 5000.
   - single value - Scan a single port. i.e. `80` scans port 80
   - range value - Scan a range of ports. i.e. `80-100` scans ports 80 to 100
   - comma separated values - Scan multiple ports. i.e. `80,443,8080` scans ports 80, 443 and 8080
-  - `combination` - Scan a combination of the above. i.e. `80,443,8080-8090,t500` scans ports 80, 443, 8080 to 8090 and top 500 ports
-- `<dns>` is the address of the dns server. This should be a valid IPv4 address and can optionally contain the port number-
+  - combination - Scan a combination of the above. i.e. `80,443,8080-8090,t500` scans ports 80, 443, 8080 to 8090 and top 500 ports
+- `--dns | -d` is the address of the dns server. This should be a valid IPv4 address and can optionally contain the port number-
   - `a.b.c.d` - Use DNS server at `a.b.c.d` on port 53
   - `a.b.c.d#n` - Use DNS server at `a.b.c.d` on port `e`
+- `--wordlist | -l` - Path to the wordlist file. This is used for bruteforcing subdomains. If the file is invalid, bruteforcing will be skipped. You can get a wordlist from [SecLists](https://github.com/danielmiessler/SecLists/tree/master/Discovery/DNS). A wordlist is also provided in the [release page](https://github.com/pptx704/domainim/releases).
+- `--throttle | -t` - This is the time (in ms) where 1024 requests will be spread out. i.e. for value `1000`, 1024 requests will be made in 1s, each having different delay before processing. The lesser the faster, bruteforcing will be. Set this to a higher value if you are getting rate limited. Default value is `1000`.
 
 **Examples**
 - `./domainim nmap.org --ports=all`
 - `./domainim google.com --ports=none --dns=8.8.8.8#53`
 - `./domainim pptx704.com --ports=t100`
 - `./domainim mysite.com --ports=t50,5432,7000-9000 --dns=1.1.1.1`
+
+The help menu can be accessed using `./domainim --help` or `./domainim -h`.
+```
+Usage:
+    domainim <domain> [--ports=<ports> | -p:<ports>] [--wordlist=<filename> | l:<filename>] [--dns=<dns> | -d:<dns>] [--throttle=<int> | -t:<int>]
+    domainim (-h | --help)
+Options:
+    -h, --help              Show this screen.
+    -p, --ports             Ports to scan. [default: `none`]
+                            Can be `all`, `none`, `t<n>`, single value, range value, combination
+    -l, --wordlist          Wordlist for subdomain bruteforcing. Bruteforcing is skipped for invalid file.
+    -d, --dns               IP and Port for DNS Resolver. Should be a valid IPv4 with an optional port [default: system default]
+    -t, --throttle          Time (in ms) needed per 1024 DNS query [default: 1000]
+Examples:
+    domainim domainim.com -p:t500 -l:wordlist.txt --dns:1.1.1.1#53
+    domainim sub.domainim.com --ports=all --dns:8.8.8.8 -t:1500
+```
 
 # Contributing
 Contributions are welcome. Feel free to open a pull request or an issue.
@@ -87,6 +108,7 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 - [x] TCP port scanning
 - [ ] UDP port scanning support
 - [ ] Resolve AAAA records (IPv6)
+- [ ] Force bruteforcing (even if wildcard subdomain is found)
 - [x] Custom DNS server
 - [x] Add more engines for subdomain enumeration (bruteforcing added)
 - [ ] File output (probably CSV or JSON)
