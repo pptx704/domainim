@@ -10,12 +10,6 @@ type
         isAlive*: bool
         ipv4*: seq[string]
 
-proc contains(subdomains: seq[Subdomain], sub: Subdomain): bool =
-    for i in subdomains:
-        if i == sub:
-            return true
-    return false
-
 proc newSubdomain*(url:string, ipv4:seq[string] = @[]): Subdomain =
     Subdomain(url: url, isAlive: bool(len(ipv4) != 0), ipv4: ipv4)
 
