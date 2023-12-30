@@ -59,7 +59,7 @@ proc processSubdomains*(domain: string, dnsStr: string, sbList: string, throttle
             
     printMsg(info, "[ ] Resolving IPv4 addresses")
     result = resolveAll(subdomains, domain, dnsStr)
-    result &= bruteSubs
+    result = merge(result, bruteSubs)
     result.sort
     printUpdate(success, "[+] Resolved IPv4 addresses")
 

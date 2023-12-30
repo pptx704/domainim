@@ -19,7 +19,7 @@ proc tableToSubdomains*(subTable: Table[string, seq[string]]): seq[Subdomain] =
 
 proc `<`*(x, y : Subdomain): bool = x.url < y.url
 
-proc `&`*(sub1, sub2: seq[Subdomain]): seq[Subdomain] =
+proc merge*(sub1, sub2: seq[Subdomain]): seq[Subdomain] =
     var resTable: Table[string, seq[string]]
     for i in sub1:
         resTable[i.url] = i.ipv4
@@ -67,7 +67,7 @@ proc createDnsClient*(dnsStr: string): DnsClient =
 
 proc resolveDomain*(subdomain: string, client: DnsClient, throttle: int = 300): Future[(string, seq[string])] {.async.} =
     await sleepAsync(rand(throttle))
-    let allIpv4 = await asyncResolveIpv4(client, subdomain)
+    let allIpv4 = await asyncResolveIpv4(client, subdomain, 1000)
     var validIPv4s: seq[string] = @[]
     for i in allIpv4:
         if isLoopBackIP(i):
