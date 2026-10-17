@@ -4,36 +4,39 @@ import iputils, subfinder
 import ndns
 import "../helpers"
 
-let client = initSystemDnsClient()
+const batchSize = 256
 
-proc getRDNS(ip: string): Future[(string, string)] {.async.} =
+proc getRDNS(ip: string, client: DnsClient): Future[(string, string)] {.async.} =
     var rdns: seq[string]
-    try:
-        rdns = await client.asyncResolveRDns(ip)
-    except TimeoutError:
-        return (ip, "")
-    except ResponseIdNotEqualError:
-        rdns = await client.asyncResolveRDns(ip)
+    for attempt in 0..1: # retry once (e.g. on ResponseIdNotEqualError)
+        try:
+            rdns = await client.asyncResolveRDns(ip)
+            break
+        except CatchableError:
+            continue
     if len(rdns) == 0:
         return (ip, "")
     return (ip, rdns[0])
 
-proc getVHostTable*(subdomains: seq[Subdomain]): Table[string, IPv4] =
-    var futures: seq[Future[(string, string)]]
-    var progress = 0
+proc getVHostTable*(subdomains: seq[Subdomain], dnsStr: string = ""): Table[string, IPv4] =
+    let client = createDnsClient(dnsStr)
+    var ips: seq[string]
     for s in subdomains:
         for i in s.ipv4:
             if i notin result:
                 result[i] = newIPv4(i)
+                ips.add(i) # one rDNS query per unique IP
             result[i].vhostNames.add(s.url)
-            futures.add(getRDNS(i))
-            inc(progress)
-            updateProgress((progress/2).toInt, futures.len)
 
-    progress = 0
-    for i in futures:
-        var res = waitFor i
-        inc(progress)
-        result[res[0]].rdns = res[1]
-        var pbar = (progress/2 + futures.len/2).toInt
-        updateProgress(pbar, futures.len)
+    # query in batches so large targets don't flood the resolver
+    var cur = 0
+    while cur < ips.len:
+        let last = min(cur + batchSize, ips.len)
+        var futures: seq[Future[(string, string)]]
+        for ip in ips.toOpenArray(cur, last - 1):
+            futures.add(getRDNS(ip, client))
+        for f in futures:
+            let (ip, rdns) = waitFor f
+            result[ip].rdns = rdns
+            inc(cur)
+            updateProgress(cur, ips.len)

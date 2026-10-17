@@ -1,6 +1,6 @@
 # Module sfutils
 
-import std/[asyncdispatch, strutils, algorithm, sequtils, tables, random]
+import std/[asyncdispatch, strutils, algorithm, sequtils, tables, random, sets]
 import ndns
 import "../iputils"
 
@@ -40,17 +40,18 @@ proc `==`*(sub1, sub2: Subdomain): bool =
     return sub1.url == sub2.url
 
 proc clean(sub: string, target: string): string =
-    var data = sub.strip(trailing=false, chars = {'.', '*'})
-    if target notin data:
-        return ""
+    let data = sub.strip(chars = {'.', '*', ' ', '\t', '\r'}).toLowerAscii
     if target != data and not data.endsWith("." & target):
         return ""
     return data
 
 proc cleanAll*(subs: seq[string], target: string): seq[string] =
+    ## Normalizes the given hostnames and keeps only unique (sub)domains of `target`
+    let target = target.toLowerAscii
+    var seen: HashSet[string]
     for i in subs:
-        var res = clean(i, target)
-        if res != "":
+        let res = clean(i, target)
+        if res != "" and not seen.containsOrIncl(res):
             result.add(res)
 
 proc createDnsClient*(dnsStr: string): DnsClient =
@@ -93,7 +94,7 @@ proc resolveAll*(subdomains: seq[string], domain: string, dnsStr: string = ""): 
             var res = waitFor i
             resTable[res[0]] = resTable[res[0]].concat(res[1])
             resTable[res[0]] = deduplicate(resTable[res[0]])
-        except Exception:
+        except CatchableError:
             continue
     
     result = tableToSubdomains(resTable)

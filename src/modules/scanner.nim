@@ -1,84 +1,86 @@
 # module scanner
 
-import std/[strutils, asyncnet, asyncdispatch, net, nativesockets, random, sequtils, os]
+## TCP connect scanner. All hosts are scanned concurrently on a single async
+## event loop with a bounded number of in-flight connection attempts.
+
+import std/[asyncnet, asyncdispatch, net, random, tables, algorithm, times]
 import scannerutils
 
-var
-    openPorts: array[1..65535, int]
-    countOpen = 0
-    timeout = 750
-    maxThreads = 2
-    toScan = 0
-    fileDesc = 2048
-    division = (65535/fileDesc).toInt
+const
+    baseTimeout = 750 # ms, added to the measured latency of each host
+    maxSockets = 4096 # concurrent connection attempts
+    maxRate = 5000.0 # connection attempts per second. Bursts beyond that get SYNs
+                     # dropped in local/router queues, which hides open ports
+
+type
+    ScanState = ref object
+        hosts: seq[string]       # hosts that answered the ping
+        timeouts: seq[int]       # per host connect timeout
+        ports: seq[int]          # shuffled
+        next, done, total: int
+        nextSlot: float          # earliest time the next attempt may start
+        open: seq[seq[int]]
+        onProgress: proc(done, total: int)
 
 randomize()
 
-proc connect(ip: string, port: int) {.async.} =
-    var sock = newAsyncSocket()
+proc isOpen(ip: string, port: int, timeout: int): Future[bool] {.async.} =
+    let sock = newAsyncSocket()
     try:
-        if await withTimeout(sock.connect(ip, port.Port), timeout):
-            openPorts[port] = port
-            inc countOpen
-    except:
-        discard
+        result = await withTimeout(sock.connect(ip, port.Port), timeout)
+    except CatchableError:
+        result = false
     finally:
         try:
             sock.close()
-        except:
+        except CatchableError:
             discard
 
-proc scan(ip: cstring, portSeq: seq[int]) {.async.} =
-    for dist in portSeq.distribute(max(1, (portSeq.len / fileDesc).toInt)):
-        var sockops = newseq[Future[void]](portSeq.len)
-        for i in low(dist)..high(dist):
-            sockops[i] = connect($ip, portSeq[i])
-        waitFor all(sockops)
-   
-proc scannerThread(supSocket: SuperSocket) {.thread.} =
-    var
-        host = supSocket.IP
-        portSeq = supSocket.ports
+proc waitSlot(s: ScanState) {.async.} =
+    ## Reserves the next free start time so attempts are spread at `maxRate`
+    let
+        now = epochTime()
+        slot = max(s.nextSlot, now)
+    s.nextSlot = slot + 1.0 / maxRate
+    if slot - now >= 0.001:
+        await sleepAsync(int((slot - now) * 1000))
 
-    shuffle(portSeq) ## Shuffle ports ordere
-    waitFor scan(host, portSeq)
+proc worker(s: ScanState) {.async.} =
+    ## Takes (host, port) pairs until none are left. Pairs are ordered port-major,
+    ## so each host only gets a fraction of the concurrent attempts at a time.
+    while s.next < s.total:
+        let
+            i = s.next
+            h = i mod s.hosts.len
+            port = s.ports[i div s.hosts.len]
+        inc(s.next)
+        await waitSlot(s)
+        if await isOpen(s.hosts[h], port, s.timeouts[h]):
+            s.open[h].add(port)
+        inc(s.done)
+        if s.onProgress != nil:
+            s.onProgress(s.done, s.total)
 
-
-proc scanPorts*(host: string, targetPorts: seq[int]): seq[int] =
-    var 
-        thr: seq[Thread[SuperSocket]] = newSeq[Thread[SuperSocket]](maxThreads)
-        ip: string
-        ms: int
-    division = max(1, (targetPorts.len/fileDesc).toInt)
-    ip = host
-    
-    for p in targetPorts:
-        openPorts[p] = -1
-
-    ms = measureLatency(ip)
-    if ms == -1:
+proc scanHosts*(hosts: seq[string], targetPorts: seq[int],
+                onProgress: proc(done, total: int) = nil): Table[string, seq[int]] =
+    ## Returns the open ports of every host. Hosts that don't answer ping are
+    ## not scanned and have no open ports.
+    let s = ScanState(ports: targetPorts, onProgress: onProgress)
+    shuffle(s.ports)
+    for host, ms in measureLatencies(hosts):
+        result[host] = @[]
+        if ms >= 0:
+            s.hosts.add(host)
+            s.timeouts.add(baseTimeout + ms)
+    if s.hosts.len == 0 or s.ports.len == 0:
         return
-    else:
-        timeout = timeout + ms
-    
-    toScan = targetPorts.len
 
-    for ports in targetPorts.distribute(division):
-        block current_ports:
-            while true:
-                for i in low(thr)..high(thr):
-                    if not thr[i].running:
-                        let supSocket = SuperSocket(IP: cstring(ip), ports: ports)
-                        createThread(thr[i], scannerThread, supSocket)
-                        break current_ports   
-                sleep(1)
+    s.open = newSeq[seq[int]](s.hosts.len)
+    s.total = s.hosts.len * s.ports.len
+    var workers: seq[Future[void]]
+    for _ in 1..min(maxSockets, s.total):
+        workers.add(worker(s))
+    waitFor all(workers)
 
-    thr.joinThreads()
-
-    for i in 1..65535:
-        if openPorts[i] == i:
-            result.add(i)
-
-    for i in 1..65535:
-        openPorts[i] = 0
-    countOpen = 0
+    for h, host in s.hosts:
+        result[host] = s.open[h].sorted

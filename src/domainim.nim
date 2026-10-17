@@ -18,25 +18,27 @@ let
 
 """
 
-proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: string, rps: int, filename: string) =
+proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: string, rps: int, filename: string, forceBrute: bool) =
     var
         outfile: File
         writeable: bool = true
         ports: seq[int]
     try:
         ports = processPortString(portStr)
-    except:
+    except ValueError:
         echo "Invalid port specification. Example of proper form: 't10,5432,53,100-150'"
+        return
     echo banner
     styledEcho "Provided domain: ", styleUnderscore, domain
+    let dnsStr = processDnsString(dnsStr)
 
-    let subdomains = processSubdomains(domain, dnsStr, sbList, rps)
+    let subdomains = processSubdomains(domain, dnsStr, sbList, rps, forceBrute)
     if len(subdomains) == 0:
-        printMsg(error, fmt"[!] No subdomains found for the {domain}")
+        printMsg(error, fmt"[-] No subdomains found for {domain}. Aborting process.")
         return
 
     printPorts(portStr)
-    var iptable = processVHostNames(subdomains)
+    var iptable = processVHostNames(subdomains, dnsStr)
     iptable = processOpenPorts(iptable, ports)
 
     if not filename.isEmptyOrWhitespace and not outfile.open(filename, fmWrite):
@@ -58,8 +60,9 @@ proc main =
         domain: string
         dns = ""
         sbList = ""
-        rps: int = 1000
+        rps: int = 1024
         outfile = ""
+        forceBrute = false
     if paramCount() == 0:
         echo usage
         return
@@ -83,9 +86,12 @@ proc main =
             of "rps":
                 try:
                     rps = p.val.parseInt
-                except:
+                    if rps < 1: raise newException(ValueError, "rps must be positive")
+                except ValueError:
                     echo usage
                     return
+            of "force-brute":
+                forceBrute = true
             of "out":
                 if p.val.endsWith(".json"):
                     outfile = p.val
@@ -109,9 +115,12 @@ proc main =
             of "r":
                 try:
                     rps = p.val.parseInt
-                except:
+                    if rps < 1: raise newException(ValueError, "rps must be positive")
+                except ValueError:
                     echo usage
                     return
+            of "f":
+                forceBrute = true
             of "o":
                 if p.val.endsWith(".json"):
                     outfile = p.val
@@ -125,7 +134,11 @@ proc main =
                 echo usage
                 return
 
-    startChecking(domain, ports, dns, sbList, rps, outfile)
+    if domain.isEmptyOrWhitespace:
+        echo usage
+        return
+
+    startChecking(domain.strip.toLowerAscii, ports, dns, sbList, rps, outfile, forceBrute)
 
 when isMainModule:
     main()
