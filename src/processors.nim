@@ -1,6 +1,6 @@
 # Module processors
 
-import modules/[subfinder, vhostname, iputils, scanner, scannerutils]
+import modules/[subfinder, vhostname, iputils, scanner, scannerutils, udpscanner]
 import std/[sequtils, tables, posix, strutils, syncio, algorithm, math, asyncdispatch, sets, options]
 import helpers
 
@@ -115,6 +115,22 @@ proc processOpenPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string,
     for ip, ipv4 in ips:
         result[ip] = addOpenPorts(ipv4, openPorts.getOrDefault(ip))
     finishProgress("[+] Scanned open ports")
+
+proc processOpenUdpPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string, IPv4] =
+    if len(ports) == 0:
+        return ips
+    printMsg(info, "[ ] Scanning UDP ports ($1 ports for each of $2 IPs)" % [$ports.len, $ips.len])
+    startProgress()
+    var lastPercent = 0
+    let udpPorts = scanUdpHosts(ips.keys.toSeq, ports, proc(done, total: int) =
+        let percent = done * 100 div total
+        if percent != lastPercent:
+            lastPercent = percent
+            updateProgress(done, total, " ($1/$2 probes)" % [$done, $total]))
+    for ip, ipv4 in ips:
+        let res = udpPorts.getOrDefault(ip)
+        result[ip] = addUdpPorts(ipv4, res.open, res.openFiltered)
+    finishProgress("[+] Scanned UDP ports")
 
 proc processPortString*(portStr: string): seq[int] =
     if portStr == "":
