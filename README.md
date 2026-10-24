@@ -44,6 +44,7 @@ Current features (v1.3.0)-
 ![](https://i.postimg.cc/wx7GpGvs/image.png)
 
 - Basic TCP port scanning
+- Basic UDP port scanning (opt-in with `--udp-ports`, no root needed)
 - Subdomains are accepted as input
 
 ![](https://i.postimg.cc/2SZYS5Sh/image.png)
@@ -68,7 +69,7 @@ nimble build
 ```
 - Run the binary
 ```bash
-./domainim <domain> [--ports=<ports>]
+./domainim <domain> [--ports=<ports>] [--udp-ports=<ports>]
 ```
 
 Or, you can just download the binary from the [release page](https://github.com/pptx704/domainim/releases). Keep in mind that the binary is tested on Debian based systems only.
@@ -76,7 +77,7 @@ Or, you can just download the binary from the [release page](https://github.com/
 # Usage
 
 ```
-./domainim <domain> [--ports=<ports> | -p:<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
+./domainim <domain> [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
 ```
 - `<domain>` is the domain to be enumerated. It can be a subdomain as well.
 - `-- ports | -p` is a string speicification of the ports to be scanned. It can be one of the following-
@@ -87,6 +88,12 @@ Or, you can just download the binary from the [release page](https://github.com/
   - range value - Scan a range of ports. i.e. `80-100` scans ports 80 to 100
   - comma separated values - Scan multiple ports. i.e. `80,443,8080` scans ports 80, 443 and 8080
   - combination - Scan a combination of the above. i.e. `80,443,8080-8090,t500` scans ports 80, 443, 8080 to 8090 and top 500 ports
+- `--udp-ports` is a string specification of the UDP ports to be scanned. It uses the same grammar as `--ports` (`all`, `none`, `t<n>`, single value, range value, comma separated values and combinations). UDP scanning is off unless this option is given with at least one port; `--ports` stays TCP-only and never enables UDP. Note that `t<n>` uses the same top ports list as the TCP scan, which is ordered by TCP popularity. i.e.
+  - `--udp-ports=53` scans UDP port 53
+  - `--udp-ports=53,123,161` scans UDP ports 53, 123 and 161
+  - `--udp-ports=1-1024` scans UDP ports 1 to 1024
+  - `--udp-ports=t100` scans the top 100 ports as UDP
+  - `--ports=80,443 --udp-ports=53,t20` scans TCP ports 80 and 443, and UDP port 53 and the top 20 ports
 - `--dns | -d` is the address of the dns server. This should be a valid IPv4 address and can optionally contain the port number-
   - `a.b.c.d` - Use DNS server at `a.b.c.d` on port 53
   - `a.b.c.d#n` - Use DNS server at `a.b.c.d` on port `n`
@@ -102,17 +109,21 @@ Or, you can just download the binary from the [release page](https://github.com/
 - `./domainim pptx704.com --ports=t100 --wordlist=wordlist.txt --out=results.json`
 - `./domainim nmap.org --wordlist=wordlist.txt --force-brute`
 - `./domainim mysite.com --ports=t50,5432,7000-9000 --dns=1.1.1.1`
+- `./domainim domainim.com --ports=80 --udp-ports=53,123`
+- `./domainim nmap.org --udp-ports=53,123,161 --out=results.json`
 
 The help menu can be accessed using `./domainim --help` or `./domainim -h`.
 ```
 Usage:
-    domainim <domain> [--ports=<ports> | -p:<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
+    domainim <domain> [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
     domainim (-h | --help)
 
 Options:
     -h, --help              Show this screen.
     -p, --ports             Ports to scan. [default: `none`]
                             Can be `all`, `none`, `t<n>`, single value, range value, combination
+    --udp-ports             UDP ports to scan. Same format as --ports. [default: `none`]
+                            Replies are reported as open, silence as open|filtered.
     -l, --wordlist          Wordlist for subdomain bruteforcing. Bruteforcing is skipped for invalid file.
     -f, --force-brute       Bruteforce even if a wildcard record is found. Results resolving only to wildcard IPs are discarded.
     -d, --dns               IP and Port for DNS Resolver. Should be a valid IPv4 with an optional port [default: system default]
@@ -120,6 +131,7 @@ Options:
     -o, --out               JSON file where the output will be saved. Filename must end with `.json`
 
 Examples:
+    domainim domainim.com --ports=80 --udp-ports=53,123
     domainim domainim.com -p:t500 -l:wordlist.txt --dns:1.1.1.1#53 --out=results.json
     domainim sub.domainim.com --ports=all --dns:8.8.8.8 -l:wordlist.txt -r:1500 -f -o:results.json
 ```
@@ -135,21 +147,52 @@ The JSON schema for the results is as follows-
         "ipv4": string,
         "vhosts": [string],
         "reverse_dns": string,
-        "ports": [int]
+        "ports": [int],
+        "udp_ports": [int],
+        "udp_open_filtered": [int]
       }
     ]
   }
 ]
 ```
 
+`ports` is always present and lists the open TCP ports. `udp_ports` and `udp_open_filtered` are present only when `--udp-ports` was given with at least one port; without it they are left out. All three lists are sorted. `data` is an empty list for a subdomain without a public IPv4 address.
+
+- `udp_ports` - UDP ports that answered a probe (open)
+- `udp_open_filtered` - UDP ports that did not answer (open|filtered)
+
+UDP port states-
+- **open** - the host replied to the probe. Shown as `Open UDP Ports` in the terminal and in `udp_ports`.
+- **closed** - the host answered with an ICMP port unreachable. Closed ports are not shown and not saved.
+- **open|filtered** - no reply arrived within the timeout (1 second), or the probe could not be completed. The port is either open but silent, or a firewall dropped the probe or the ICMP reply; the two cases cannot be told apart. Shown as `Open|Filtered UDP Ports` in the terminal and in `udp_open_filtered`.
+
+Example of a host entry with `--udp-ports=53,123,161`-
+```
+{
+  "ipv4": "45.33.32.156",
+  "vhosts": ["echo.nmap.org", "scanme.nmap.org"],
+  "reverse_dns": "scanme.nmap.org.",
+  "ports": [],
+  "udp_ports": [123],
+  "udp_open_filtered": []
+}
+```
+
 Example json for `nmap.org` can be found [here](https://pastebin.com/iqNiNtsT).
+
+## UDP scanning limitations
+- UDP scanning uses ordinary datagram sockets, so it needs no raw sockets or root. As a result a port is closed only when the target's ICMP port unreachable reaches the scanner.
+- Many targets rate limit ICMP errors, and firewalls often drop ICMP. Such ports are reported as open|filtered, so open|filtered is common and does not mean the port is open.
+- Probe payloads are sent only for a few common services (DNS 53, NTP 123, SNMP 161, NetBIOS 137, SSDP 1900, mDNS 5353). Other ports get an empty datagram, which most services ignore, so they show up as open|filtered even when open.
+- Each probe waits 1 second for a reply, and at most 2000 probes per second are sent. Large ranges (e.g. `all`) take a long time. Prefer a short list or `t<n>`.
+- Hosts are scanned even if they do not answer ping. For comprehensive UDP scanning use [Nmap](https://nmap.org).
 
 # Contributing
 Contributions are welcome. Feel free to open a pull request or an issue.
 
 ## Planned Features
 - [x] TCP port scanning
-- [ ] UDP port scanning support
+- [x] UDP port scanning
 - [ ] Resolve AAAA records (IPv6)
 - [x] Custom DNS server
 - [x] Add bruteforcing subdomains using a wordlist
