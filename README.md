@@ -447,6 +447,8 @@ IPv6 limitations-
 # Contributing
 Contributions are welcome. Feel free to open a pull request or an issue.
 
+Run `nimble verify` to build the program and run the unit tests, or `nimble test` to run only the tests.
+
 ## Planned Features
 - [x] TCP port scanning
 - [x] UDP port scanning
