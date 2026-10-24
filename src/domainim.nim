@@ -1,5 +1,6 @@
 import std/[parseopt, os, strformat, terminal, strutils]
 import processors, helpers, results, targets, runner
+import modules/dirbuster
 
 let 
     usage = fmt"Invalid argument(s). Use ./{getAppFilename().extractFilename} --help for usage."
@@ -18,7 +19,7 @@ let
 
 """
 
-proc startChecking(domains: seq[string], portStr: string, dnsStr: string, sbList: string, rps: int, filename: string, forceBrute: bool, udpPortStr: string = "") =
+proc startChecking(domains: seq[string], portStr: string, dnsStr: string, sbList: string, rps: int, filename: string, forceBrute: bool, udpPortStr: string = "", dirOpts: DirOptions = DirOptions()) =
     var
         outfile: File
         writeable: bool = true
@@ -45,7 +46,7 @@ proc startChecking(domains: seq[string], portStr: string, dnsStr: string, sbList
         styledEcho "Provided domain: ", styleUnderscore, domain
         if i == 0:
             resolver = processDnsString(dnsStr)
-        result = DomainResult(domain: domain, status: dsOk, udpEnabled: udpEnabled)
+        result = DomainResult(domain: domain, status: dsOk, udpEnabled: udpEnabled, dirEnabled: dirOpts.enabled)
         result.subdomains = processSubdomains(domain, resolver, sbList, rps, forceBrute)
         if len(result.subdomains) == 0:
             result.status = dsNoSubdomains
@@ -59,6 +60,11 @@ proc startChecking(domains: seq[string], portStr: string, dnsStr: string, sbList
             if udpEnabled:
                 iptable = processOpenUdpPorts(iptable, udpPorts)
             result.ips = iptable
+            if dirOpts.enabled:
+                try:
+                    result.dirResults = processDirectories(result.subdomains, dirOpts)
+                except CatchableError as e:
+                    printMsg(error, fmt"[!] Directory busting failed for {domain}: {e.msg}")
     results = runDomains(domains, udpEnabled, processDomain,
         proc (domain, msg: string) = printMsg(error, fmt"[!] Failed to process {domain}: {msg}"))
 
@@ -86,6 +92,12 @@ proc main =
         rps: int = 1024
         outfile = ""
         forceBrute = false
+        dirWordlist = ""
+        dirWordlistGiven = false
+        dirOptionGiven = false
+        dirStatus = "200,204,301,302,307,308,401,403"
+        dirRps = "50"
+        dirConcurrency = "20"
     if paramCount() == 0:
         echo usage
         return
@@ -116,6 +128,18 @@ proc main =
                 listFile = p.val
             of "force-brute":
                 forceBrute = true
+            of "dir-wordlist":
+                dirWordlist = p.val
+                dirWordlistGiven = true
+            of "dir-status":
+                dirStatus = p.val
+                dirOptionGiven = true
+            of "dir-rps":
+                dirRps = p.val
+                dirOptionGiven = true
+            of "dir-concurrency":
+                dirConcurrency = p.val
+                dirOptionGiven = true
             of "out":
                 if p.val.endsWith(".json"):
                     outfile = p.val
@@ -167,6 +191,34 @@ proc main =
             echo fmt"Could not read list file {listFile}."
             return
 
+    var dirOpts: DirOptions
+    if dirWordlistGiven or dirOptionGiven:
+        if not dirWordlistGiven:
+            echo "The --dir-status, --dir-rps and --dir-concurrency options need --dir-wordlist."
+            return
+        try:
+            dirOpts.paths = parseWordlist(readFile(dirWordlist))
+        except IOError, OSError:
+            echo fmt"Could not read directory wordlist {dirWordlist}."
+            return
+        except ValueError as e:
+            echo fmt"Invalid directory wordlist {dirWordlist}: {e.msg}."
+            return
+        try:
+            dirOpts.filter = parseStatusFilter(dirStatus)
+        except ValueError:
+            echo fmt"Invalid --dir-status '{dirStatus}'. Example of proper form: '200,301-303,403'"
+            return
+        try:
+            dirOpts.rps = dirRps.parseInt
+            dirOpts.concurrency = dirConcurrency.parseInt
+            if dirOpts.rps < 1 or dirOpts.concurrency < 1:
+                raise newException(ValueError, "must be positive")
+        except ValueError:
+            echo "Invalid --dir-rps or --dir-concurrency. Both must be positive integers."
+            return
+        dirOpts.enabled = true
+
     let targets = parseTargets(domains)
     for bad in targets.invalid:
         echo fmt"Invalid domain '{bad}'. It will be skipped."
@@ -174,7 +226,7 @@ proc main =
         echo usage
         return
 
-    startChecking(targets.valid, ports, dns, sbList, rps, outfile, forceBrute, udpPorts)
+    startChecking(targets.valid, ports, dns, sbList, rps, outfile, forceBrute, udpPorts, dirOpts)
 
 when isMainModule:
     main()

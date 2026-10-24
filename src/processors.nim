@@ -1,6 +1,6 @@
 # Module processors
 
-import modules/[subfinder, vhostname, iputils, scanner, scannerutils, udpscanner]
+import modules/[subfinder, vhostname, iputils, scanner, scannerutils, udpscanner, dirbuster]
 import std/[sequtils, tables, posix, strutils, syncio, algorithm, math, asyncdispatch, sets, options]
 import helpers
 
@@ -136,3 +136,35 @@ proc processPortString*(portStr: string): seq[int] =
     if portStr == "":
         return parsePorts("none")        
     return parsePorts(portStr)
+
+type DirOptions* = object
+    enabled*: bool
+    paths*: seq[string]
+    filter*: StatusFilter
+    rps*: int
+    concurrency*: int
+
+proc processDirectories*(subdomains: seq[Subdomain], opts: DirOptions): seq[DirResult] =
+    ## Probes the paths on http and https of every subdomain that resolved
+    var targets: seq[DirTarget]
+    for s in subdomains:
+        if s.ipv4.len == 0 and s.ipv6.len == 0:
+            continue
+        for scheme in ["http", "https"]:
+            targets.add(DirTarget(hostname: s.url, scheme: scheme))
+    if targets.len == 0:
+        printMsg(neutral, "[*] No resolved subdomains. Directory busting skipped.")
+        return
+    printMsg(info, "[ ] Directory busting ($1 paths for each of $2 targets). This might take some time." % [$opts.paths.len, $targets.len])
+    startProgress()
+    var lastPercent = 0
+    result = waitFor busDirectories(targets, opts.paths, opts.filter, opts.rps, opts.concurrency,
+        progress = proc (done, total: int) =
+            let percent = done * 100 div max(1, total)
+            if percent != lastPercent:
+                lastPercent = percent
+                updateProgress(done, total, " ($1/$2 requests)" % [$done, $total]))
+    var found = 0
+    for d in result:
+        found += d.findings.len
+    finishProgress("[+] Directory busting completed ($1 found)." % $found)
