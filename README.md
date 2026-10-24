@@ -50,6 +50,7 @@ Current features (v1.3.0)-
 ![](https://i.postimg.cc/2SZYS5Sh/image.png)
 
 - Multiple domain enumeration. Several domains can be given as arguments or in a file (`--list | -i`), and are enumerated one after the other
+- Directory busting (opt-in with `--dir-wordlist`). Paths from a wordlist are probed on `http` and `https` of every subdomain found, with soft-404 filtering. See [Directory busting](#directory-busting)
 - Export results to JSON file
 
 ![](https://i.postimg.cc/9fv3ZYRM/image.png)
@@ -70,7 +71,7 @@ nimble build
 ```
 - Run the binary
 ```bash
-./domainim <domain>... [--list=<filename>] [--ports=<ports>] [--udp-ports=<ports>]
+./domainim <domain>... [--list=<filename>] [--ports=<ports>] [--udp-ports=<ports>] [--dir-wordlist=<filename>]
 ```
 
 Or, you can just download the binary from the [release page](https://github.com/pptx704/domainim/releases). Keep in mind that the binary is tested on Debian based systems only.
@@ -78,7 +79,7 @@ Or, you can just download the binary from the [release page](https://github.com/
 # Usage
 
 ```
-./domainim <domain>... [--list=<filename> | -i:<filename>] [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
+./domainim <domain>... [--list=<filename> | -i:<filename>] [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>] [--dir-wordlist=<filename> [--dir-status=<list>] [--dir-rps=<int>] [--dir-concurrency=<int>]]
 ```
 - `<domain>...` is one or more domains to be enumerated. Each can be a subdomain as well. See [Multiple domains](#multiple-domains).
 - `--list | -i` is the path to a file with target domains. See [Multiple domains](#multiple-domains). Write the value as `--list=<filename>` or `-i:<filename>`; `--list <filename>` with a space does not work.
@@ -102,6 +103,7 @@ Or, you can just download the binary from the [release page](https://github.com/
 - `--wordlist | -l` - Path to the wordlist file. This is used for bruteforcing subdomains. If the file is invalid, bruteforcing will be skipped. Empty lines and lines starting with `#` are ignored. You can get a wordlist from [SecLists](https://github.com/danielmiessler/SecLists/tree/master/Discovery/DNS). A wordlist is also provided in the [release page](https://github.com/pptx704/domainim/releases).
 - `--force-brute | -f` - Bruteforce even if a wildcard record is found. Subdomains that resolve only to the wildcard IPs are discarded.
 - `--rps | -r` - Number of requests to be made per second during bruteforce. The default value is `1024 req/s`. It is to be noted that, DNS queries are made in batches and next batch is made only after the previous one is completed. Since quries can be rate limited, increasing the value does not always guarantee faster results.
+- `--dir-wordlist`, `--dir-status`, `--dir-rps`, `--dir-concurrency` - Directory busting. Off unless `--dir-wordlist` is given. See [Directory busting](#directory-busting).
 - `--out | -o` - Path to the output file. The output will be saved in JSON format. The filename must end with `.json`.
 
 **Examples**
@@ -115,11 +117,12 @@ Or, you can just download the binary from the [release page](https://github.com/
 - `./domainim mysite.com --ports=t50,5432,7000-9000 --dns=1.1.1.1`
 - `./domainim domainim.com --ports=80 --udp-ports=53,123`
 - `./domainim nmap.org --udp-ports=53,123,161 --out=results.json`
+- `./domainim nmap.org --dir-wordlist=paths.txt --dir-status=200,301-303 --dir-rps=20 --dir-concurrency=10`
 
 The help menu can be accessed using `./domainim --help` or `./domainim -h`.
 ```
 Usage:
-    domainim <domain>... [--list=<filename> | -i:<filename>] [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
+    domainim <domain>... [--list=<filename> | -i:<filename>] [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>] [--dir-wordlist=<filename> [--dir-status=<list>] [--dir-rps=<int>] [--dir-concurrency=<int>]]
     domainim (-h | --help)
 
 Options:
@@ -134,14 +137,19 @@ Options:
     -f, --force-brute       Bruteforce even if a wildcard record is found. Results resolving only to wildcard IPs are discarded.
     -d, --dns               IP and Port for DNS Resolver. Should be a valid IPv4 with an optional port [default: system default]
     -r, --rps               DNS queries to be made per second [default: 1024 req/s]
+    --dir-wordlist          Wordlist of paths for directory busting on http and https of every resolved subdomain. Enables the feature.
+    --dir-status            Status codes to report, a list of values and ranges [default: `200,204,301,302,307,308,401,403`]
+    --dir-rps               Directory busting requests to be made per second [default: 50 req/s]
+    --dir-concurrency       Directory busting requests in flight at once [default: 20]
     -o, --out               JSON file where the output will be saved. Filename must end with `.json`
 
 Examples:
     domainim domainim.com --ports=80 --udp-ports=53,123
     domainim domainim.com domainim.org --list=targets.txt
     domainim domainim.com -p:t500 -l:wordlist.txt --dns:1.1.1.1#53 --out=results.json
+    domainim domainim.com --dir-wordlist=paths.txt --dir-status=200,301-303 --dir-rps=20 --dir-concurrency=10
     domainim sub.domainim.com --ports=all --dns:8.8.8.8 -l:wordlist.txt -r:1500 -f -o:results.json
-
+    
 ```
 
 The JSON schema for the results of a single domain is as follows (for several domains see [Multiple domains](#multiple-domains))-
@@ -235,7 +243,7 @@ Validation and duplicates-
 - A list file that cannot be read stops the run with `Could not read list file <filename>.`
 
 Behaviour-
-- All options (`--ports`, `--udp-ports`, `--dns`, `--wordlist`, `--rps`, `--force-brute`) are shared and apply to every domain. The `--ports` and `--udp-ports` values are checked once, before the first domain.
+- All options (`--ports`, `--udp-ports`, `--dns`, `--wordlist`, `--rps`, `--force-brute`, `--dir-*`) are shared and apply to every domain. The `--ports` and `--udp-ports` values are checked once, before the first domain.
 - Domains run one after the other, in input order, never in parallel. Each domain gets the same full scan as a single run.
 - A domain that fails or finds no subdomains never stops the others. A domain with no subdomains gets the status `no_subdomains`. A domain that raised an error while it ran gets the status `error`, with the error message. Both are listed in the summary.
 - When there is more than one domain, a header `[*] Domain <i>/<n>: <domain>` is printed before each domain while it runs, and again before each domain in the results. A single domain prints no header.
@@ -290,6 +298,120 @@ Status values-
 - `no_subdomains` - no subdomain was found for the domain
 - `error` - an error stopped the domain; see `error`
 
+## Directory busting
+Directory busting probes a list of paths on the web servers of the subdomains that were found, and reports the paths that exist. It is off unless `--dir-wordlist` is given. The other dir options only tune it: `--dir-status`, `--dir-rps` and `--dir-concurrency` without `--dir-wordlist` are rejected with `The --dir-status, --dir-rps and --dir-concurrency options need --dir-wordlist.` and nothing runs.
+
+Use it only on systems you are authorised to test. It sends many requests to the target.
+
+Options (long form only, written as `--dir-wordlist=<filename>` or `--dir-wordlist:<filename>`; a space instead of `=` does not work)-
+- `--dir-wordlist` - Path to the file with the paths to try. Enables the feature.
+- `--dir-status` - Status codes to report, a comma separated list of codes and ranges. Default `200,204,301,302,307,308,401,403`. Codes must be between 100 and 599. i.e. `200,301-303,403`. Responses with any other status are ignored.
+- `--dir-rps` - Requests started per second, over all hosts. Default `50`. Must be a positive integer.
+- `--dir-concurrency` - Requests in flight at once, over all hosts. Default `20`. Must be a positive integer.
+
+An unreadable wordlist, a wordlist without paths, an invalid status list and a non-positive number each stop the run before anything is scanned, with a message.
+
+**Examples**
+- `./domainim nmap.org --dir-wordlist=paths.txt`
+- `./domainim nmap.org --dir-wordlist=paths.txt --dir-status=200,301-303 --dir-rps=20 --dir-concurrency=10`
+- `./domainim nmap.org --ports=80,443 --dir-wordlist=paths.txt --out=results.json`
+
+### Wordlist
+One path per line. Blank lines and lines starting with `#` are ignored, and spaces around a line are removed. A path without a leading `/` gets one, so `admin` and `/admin` are the same path. Duplicates are removed and the first one keeps its place. Only the paths of the file are requested: there is no recursion and no extension guessing.
+```
+# paths.txt
+admin
+/login
+.git/HEAD
+backup.zip
+```
+
+### What is probed
+- Every subdomain that has at least one IPv4 or IPv6 address is probed, by its hostname and not by its IP address. Subdomains without an address are skipped. Hosts do not need to answer ping.
+- Each such subdomain is probed over `http` (port 80) and `https` (port 443). The ports are fixed. The TLS certificate is not verified.
+- It runs for every domain, after the port scans of that domain. A failure of the step is printed and does not stop the other domains.
+- Requests are `GET` requests with the user agent `Mozilla/5.0 (compatible; domainim)`, without custom headers or authentication.
+
+### Results
+- A path is reported when its status is in `--dir-status` and the soft-404 baseline (below) does not suppress it. A path that does not exist normally answers `404`, which is not reported.
+- Redirects are not followed. A redirect that is reported shows the `Location` header: after `->` in the terminal and in the `redirect` field of the JSON. Without a redirect, `redirect` is an empty string.
+- `size` is the number of body bytes that were read, up to 65,536. It is not the `Content-Length` header, so a larger body shows `65536`.
+- Each request has one fixed 10 second timeout for the whole request, the body included. It cannot be changed.
+- A connection error, a TLS failure or a timeout counts as no finding for that path. It is not reported anywhere.
+- Findings are sorted by scheme, then path.
+
+### Soft-404 baseline
+Some servers answer `200` (or a redirect) for paths that do not exist. To keep these out of the results, each host and scheme first gets 2 probes of random 16 character paths that do not exist. The answers (status, size and, for redirects, target) are the baseline. The rules, in order-
+1. A response whose status is not in `--dir-status` is ignored.
+2. If neither probe got an answer (the target is unreachable), the wordlist is not requested for it, and the terminal shows `Target unreachable over <scheme>`.
+3. If every probe answered `404`, nothing is suppressed.
+4. If all probes answered the same other status, a response is suppressed when it has that status and its size is within the tolerance of the sizes seen in the probes. A redirect is also suppressed only when its target equals the one of a probe, after the requested path in the `Location` header is replaced by a placeholder.
+5. If the probes answered different statuses, a response is suppressed when it matches any single probe: the same status, a size within the tolerance of that probe and, for a redirect, the same target.
+
+The tolerance is the larger of 16 bytes and 5% of the larger size, so pages that only differ by a small dynamic part still match.
+
+Suppressed responses are counted, not discarded silently. The terminal shows `<n> responses matching the soft-404 baseline hidden` for the subdomain and the JSON has `paths_hidden`.
+
+Limits of the method: the baseline is based on two random paths only. A real page whose status is the same as the baseline and whose size is close to it is suppressed too. A soft-404 page whose size varies by more than the tolerance (for example one that echoes a long path or a timestamp) is not detected, and neither is one that depends on the path in another way. The size is measured up to 65,536 bytes only. A server that treats the random probes differently from the wordlist paths, or that rate limits or blocks the scanner, can give a wrong baseline. Treat the results as leads and check them.
+
+### Request budget
+The 2 baseline probes of each host and scheme are real requests: they count toward `--dir-rps` and `--dir-concurrency`, and in the progress count. A host and scheme with a wordlist of `N` paths costs `N + 2` requests. At most 5 requests are in flight for one hostname at the same time (over `http` and `https` together), so one slow host cannot take all the workers. The wordlist of a target starts after its two probes are done.
+
+### Terminal output
+The paths of a subdomain are printed after its IP lines, as `<scheme> <status> <path> <size>`, with ` -> <location>` for a redirect. The status is coloured. Real output for a host with a plain server, a host with a soft-404 server and a host without an address (https was not reachable in this run)-
+```
+www.example.test
+  ↳ 10.0.0.1
+ 
+  ↳ Paths: 
+      http 200 /admin 1840
+      http 200 /backup 65536
+      http 302 /login 0 -> /signin
+      http 403 /secret 100
+    Target unreachable over https
+soft.example.test
+  ↳ 10.0.0.2
+ 
+  ↳ Paths: 
+      http 401 /private 4
+    6 responses matching the soft-404 baseline hidden
+    Target unreachable over https
+dead.example.test
+  ↳ Public IPv4 not found
+```
+Without `--dir-wordlist` nothing is added to the terminal output. Nothing is printed for a subdomain without findings, hidden responses or unreachable schemes. When no subdomain has an address, `Directory busting skipped.` is printed.
+
+### JSON output
+`paths` and `paths_hidden` are added to each subdomain only when directory busting ran. Without `--dir-wordlist` the JSON is unchanged. Both are present for every subdomain, also for one that was not probed (`[]` and `0`). They come after `data`.
+```
+{
+  "subdomain": "soft.example.test",
+  "ipv6": [],
+  "data": [ ... ],
+  "paths": [
+    {
+      "scheme": "http",
+      "path": "/login",
+      "status": 302,
+      "size": 0,
+      "redirect": "/signin"
+    }
+  ],
+  "paths_hidden": 6
+}
+```
+- `paths` - list of findings of both schemes, sorted by scheme and path. `scheme` is `http` or `https`, `status` and `size` are integers (`size` is at most 65536), and `redirect` is a string.
+- `paths_hidden` - number of responses suppressed by the soft-404 baseline, over both schemes.
+
+An unreachable target gives no finding and nothing else in the JSON; only the terminal names it.
+
+### Directory busting limitations
+- No recursion: only the paths of the wordlist are requested.
+- No extensions: a path is requested exactly as written. Add `admin.php` to the list yourself.
+- No custom headers, cookies or authentication, and the ports (80 and 443), the methods and the timeout are fixed.
+- Only subdomains that were found are probed, and by hostname. Other virtual hosts and IPs are not.
+- Wordlists are not provided. Take one from [SecLists](https://github.com/danielmiessler/SecLists/tree/master/Discovery/Web-Content).
+
 ## IPv6
 IPv6 addresses come from AAAA records and are shown for each subdomain, after its IPv4 addresses, as one line with the addresses sorted and separated by commas-
 ```
@@ -335,7 +457,7 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 - [x] Add more engines for subdomain enumeration
 - [x] File output (JSON)
 - [x] Multiple domain enumeration
-- [ ] Dir and File busting
+- [x] Dir and File busting
 
 ## Others
 - [x] Update verbose output when encountering errors (v0.2.0)
