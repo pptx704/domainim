@@ -1,7 +1,5 @@
 import std/[parseopt, os, strformat, terminal, strutils]
-import processors, helpers, results, targets
-import modules/iputils
-import std/tables
+import processors, helpers, results, targets, runner
 
 let 
     usage = fmt"Invalid argument(s). Use ./{getAppFilename().extractFilename} --help for usage."
@@ -41,34 +39,28 @@ proc startChecking(domains: seq[string], portStr: string, dnsStr: string, sbList
         results: seq[DomainResult]
         resolver = dnsStr
     echo banner
-    for i, domain in domains:
+    proc processDomain(domain: string, i: int): DomainResult =
         if domains.len > 1:
             printMsg(neutral, domainHeader(domain, i + 1, domains.len))
         styledEcho "Provided domain: ", styleUnderscore, domain
         if i == 0:
             resolver = processDnsString(dnsStr)
-        var res = DomainResult(domain: domain, status: dsOk, udpEnabled: udpEnabled)
-        try:
-            res.subdomains = processSubdomains(domain, resolver, sbList, rps, forceBrute)
-            if len(res.subdomains) == 0:
-                res.status = dsNoSubdomains
-                printMsg(error, fmt"[-] No subdomains found for {domain}. Aborting process.")
-            else:
-                printPorts(portStr)
-                if udpEnabled:
-                    printUdpPorts(udpPortStr)
-                var iptable = processVHostNames(res.subdomains, resolver)
-                iptable = processOpenPorts(iptable, ports)
-                if udpEnabled:
-                    iptable = processOpenUdpPorts(iptable, udpPorts)
-                res.ips = iptable
-        except CatchableError as e:
-            res.status = dsError
-            res.error = e.msg
-            res.subdomains = @[]
-            res.ips = initTable[string, IPv4]()
-            printMsg(error, fmt"[!] Failed to process {domain}: {e.msg}")
-        results.add res
+        result = DomainResult(domain: domain, status: dsOk, udpEnabled: udpEnabled)
+        result.subdomains = processSubdomains(domain, resolver, sbList, rps, forceBrute)
+        if len(result.subdomains) == 0:
+            result.status = dsNoSubdomains
+            printMsg(error, fmt"[-] No subdomains found for {domain}. Aborting process.")
+        else:
+            printPorts(portStr)
+            if udpEnabled:
+                printUdpPorts(udpPortStr)
+            var iptable = processVHostNames(result.subdomains, resolver)
+            iptable = processOpenPorts(iptable, ports)
+            if udpEnabled:
+                iptable = processOpenUdpPorts(iptable, udpPorts)
+            result.ips = iptable
+    results = runDomains(domains, udpEnabled, processDomain,
+        proc (domain, msg: string) = printMsg(error, fmt"[!] Failed to process {domain}: {msg}"))
 
     if not filename.isEmptyOrWhitespace and not outfile.open(filename, fmWrite):
         printOutfile(false, filename)
