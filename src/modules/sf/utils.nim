@@ -79,10 +79,10 @@ proc createDnsClient*(dnsStr: string): DnsClient =
     else:
         result = initDnsClient(dnsStr)
 
-proc resolveAaaa(client: DnsClient, subdomain: string): Future[seq[string]] {.async.} =
-    ## AAAA lookup that never fails: any error yields an empty list.
+proc awaitAaaa*(lookup: Future[seq[string]]): Future[seq[string]] {.async.} =
+    ## Awaits an AAAA lookup and never fails: any error yields an empty list.
     try:
-        let all = await asyncResolveIpv6(client, subdomain, 1000)
+        let all = await lookup
         for i in all:
             let ip = canonicalIPv6(i)
             if ip != "":
@@ -91,14 +91,13 @@ proc resolveAaaa(client: DnsClient, subdomain: string): Future[seq[string]] {.as
     except CatchableError:
         result = @[]
 
-proc resolveDomain*(subdomain: string, client: DnsClient, throttle: int = 1000): Future[ResolvedHost] {.async.} =
-    await sleepAsync(rand(throttle))
-    let
-        aFuture = asyncResolveIpv4(client, subdomain, 1000)
-        aaaaFuture = resolveAaaa(client, subdomain)
+proc combineHost*(subdomain: string, aLookup: Future[seq[string]], aaaaLookup: Future[seq[string]]): Future[ResolvedHost] {.async.} =
+    ## Joins the A and AAAA lookups. Only a failing A lookup fails the host;
+    ## the AAAA lookup can only add addresses.
+    let aaaaFuture = awaitAaaa(aaaaLookup)
     var validIPv4s: seq[string] = @[]
     try:
-        let allIpv4 = await aFuture
+        let allIpv4 = await aLookup
         for i in allIpv4:
             if isLoopBackIP(i):
                 continue
@@ -108,6 +107,11 @@ proc resolveDomain*(subdomain: string, client: DnsClient, throttle: int = 1000):
         raise e
     let ipv6 = await aaaaFuture
     return ResolvedHost(url: subdomain, ipv4: validIPv4s, ipv6: ipv6)
+
+proc resolveDomain*(subdomain: string, client: DnsClient, throttle: int = 1000): Future[ResolvedHost] {.async.} =
+    await sleepAsync(rand(throttle))
+    return await combineHost(subdomain, asyncResolveIpv4(client, subdomain, 1000),
+                             asyncResolveIpv6(client, subdomain, 1000))
 
 proc resolveAll*(subdomains: seq[string], domain: string, dnsStr: string = ""): seq[Subdomain] =
     var 

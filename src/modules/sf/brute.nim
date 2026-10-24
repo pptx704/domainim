@@ -1,4 +1,4 @@
-import std/[oids, asyncdispatch, strutils, sets, sequtils]
+import std/[oids, asyncdispatch, strutils, sets, sequtils, options]
 import utils
 import ndns
 import "../../helpers"
@@ -35,6 +35,15 @@ proc filterWildcard*(subs: seq[Subdomain], wildcardIPs: HashSet[string], keep: H
         else:
             inc(result[1])
 
+proc bruteResult*(res: ResolvedHost, wildcardIPs: HashSet[string]): Option[Subdomain] =
+    ## Removes wildcard IPs from both families. The host is dropped when nothing is left.
+    let
+        v4 = res.ipv4.filterIt(it notin wildcardIPs)
+        v6 = res.ipv6.filterIt(it notin wildcardIPs)
+    if v4.len == 0 and v6.len == 0:
+        return none(Subdomain)
+    some(newSubdomain(res.url, v4, v6))
+
 proc brute(subs: seq[string], client: DnsClient, throttle: int, wildcardIPs: HashSet[string]): seq[Subdomain] =
     var futures: seq[Future[ResolvedHost]] = @[]
 
@@ -43,13 +52,9 @@ proc brute(subs: seq[string], client: DnsClient, throttle: int, wildcardIPs: Has
 
     for i in futures:
         try:
-            let res = waitFor i
-            let
-                v4 = res.ipv4.filterIt(it notin wildcardIPs)
-                v6 = res.ipv6.filterIt(it notin wildcardIPs)
-            if v4.len == 0 and v6.len == 0:
-                continue
-            result.add(newSubdomain(res.url, v4, v6))
+            let sub = bruteResult(waitFor i, wildcardIPs)
+            if sub.isSome:
+                result.add(sub.get)
         except CatchableError:
             continue
 
