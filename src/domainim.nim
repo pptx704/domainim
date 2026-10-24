@@ -1,5 +1,5 @@
 import std/[parseopt, os, strformat, terminal, strutils]
-import processors, helpers, results
+import processors, helpers, results, targets
 
 let 
     usage = fmt"Invalid argument(s). Use ./{getAppFilename().extractFilename} --help for usage."
@@ -18,7 +18,7 @@ let
 
 """
 
-proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: string, rps: int, filename: string, forceBrute: bool, udpPortStr: string = "") =
+proc startChecking(domains: seq[string], portStr: string, dnsStr: string, sbList: string, rps: int, filename: string, forceBrute: bool, udpPortStr: string = "") =
     var
         outfile: File
         writeable: bool = true
@@ -34,7 +34,9 @@ proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: stri
     except ValueError:
         echo "Invalid UDP port specification. Example of proper form: 't10,53,100-150'"
         return
-    let udpEnabled = udpPorts.len > 0
+    let
+        udpEnabled = udpPorts.len > 0
+        domain = domains[0]
     echo banner
     styledEcho "Provided domain: ", styleUnderscore, domain
     let dnsStr = processDnsString(dnsStr)
@@ -69,7 +71,8 @@ proc main =
         ports = ""
         udpPorts = ""
         p = initOptParser(quoteShellCommand(commandLineParams()))
-        domain: string
+        domains: seq[string]
+        listFile = ""
         dns = ""
         sbList = ""
         rps: int = 1024
@@ -83,10 +86,7 @@ proc main =
         case p.kind
         of cmdEnd: break
         of cmdArgument:
-            if domain != "":
-                echo usage
-                return
-            domain = p.key
+            domains.add p.key
         of cmdLongOption:
             case p.key
             of "ports":
@@ -104,6 +104,8 @@ proc main =
                 except ValueError:
                     echo usage
                     return
+            of "list":
+                listFile = p.val
             of "force-brute":
                 forceBrute = true
             of "out":
@@ -133,6 +135,8 @@ proc main =
                 except ValueError:
                     echo usage
                     return
+            of "i":
+                listFile = p.val
             of "f":
                 forceBrute = true
             of "o":
@@ -148,11 +152,21 @@ proc main =
                 echo usage
                 return
 
-    if domain.isEmptyOrWhitespace:
+    if listFile != "":
+        try:
+            domains.add parseTargetFile(readFile(listFile))
+        except IOError, OSError:
+            echo fmt"Could not read list file {listFile}."
+            return
+
+    let targets = parseTargets(domains)
+    for bad in targets.invalid:
+        echo fmt"Invalid domain '{bad}'. It will be skipped."
+    if targets.valid.len == 0:
         echo usage
         return
 
-    startChecking(domain.strip.toLowerAscii, ports, dns, sbList, rps, outfile, forceBrute, udpPorts)
+    startChecking(targets.valid, ports, dns, sbList, rps, outfile, forceBrute, udpPorts)
 
 when isMainModule:
     main()

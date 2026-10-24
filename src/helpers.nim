@@ -62,11 +62,13 @@ proc printOutfile*(status: bool, filename: string) =
 proc printHelp*() =
     echo """
 Usage:
-    $1 <domain> [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
+    $1 <domain>... [--list=<filename> | -i:<filename>] [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
     $1 (-h | --help)
 
 Options:
     -h, --help              Show this screen.
+    -i, --list              File with target domains, one per line. Blank lines and lines starting with `#` are ignored.
+                            Combines with domains given as arguments. Duplicates are removed.
     -p, --ports             Ports to scan. [default: `none`]
                             Can be `all`, `none`, `t<n>`, single value, range value, combination
     --udp-ports             UDP ports to scan. Same format as --ports. [default: `none`]
@@ -79,6 +81,7 @@ Options:
 
 Examples:
     $1 domainim.com --ports=80 --udp-ports=53,123
+    $1 domainim.com domainim.org --list=targets.txt
     $1 domainim.com -p:t500 -l:wordlist.txt --dns:1.1.1.1#53 --out=results.json
     $1 sub.domainim.com --ports=all --dns:8.8.8.8 -l:wordlist.txt -r:1500 -f -o:results.json
     """ % getAppFilename().extractFilename
