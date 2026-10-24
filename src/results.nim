@@ -1,13 +1,79 @@
 import helpers
 import std/[terminal, strutils, tables, json, algorithm]
-import modules/[iputils, subfinder]
+import modules/[iputils, subfinder, dirbuster]
 
-proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool = false) =
+const maxReportedSize = 65536
+
+proc findingsFor*(dirs: seq[DirResult], url: string): seq[DirFinding] =
+    ## Findings of every scheme of one subdomain, sorted by scheme then path.
+    for d in dirs:
+        if d.target.hostname == url:
+            result.add(d.findings)
+    result.sort(proc (a, b: DirFinding): int =
+        result = cmp(a.scheme, b.scheme)
+        if result == 0: result = cmp(a.path, b.path)
+        if result == 0: result = cmp(a.status, b.status))
+
+proc hiddenFor*(dirs: seq[DirResult], url: string): int =
+    for d in dirs:
+        if d.target.hostname == url:
+            result += d.summary.suppressed
+
+proc unreachableFor*(dirs: seq[DirResult], url: string): seq[string] =
+    ## Schemes of the subdomain that answered no probe.
+    for d in dirs:
+        if d.target.hostname == url and d.summary.unreachable:
+            result.add(d.target.scheme)
+    result.sort()
+
+proc findingLine*(f: DirFinding): string =
+    result = f.scheme & " " & $f.status & " " & f.path & " " & $min(f.size, maxReportedSize)
+    if f.redirect != "":
+        result.add(" -> " & f.redirect)
+
+proc hiddenNote*(hidden: int): string =
+    return $hidden & " responses matching the soft-404 baseline hidden"
+
+proc unreachableNote*(schemes: seq[string]): string =
+    return "Target unreachable over " & schemes.join(", ")
+
+proc statusColor(status: int): ForegroundColor =
+    case status div 100
+    of 2: fgGreen
+    of 3: fgCyan
+    of 4: fgYellow
+    of 5: fgRed
+    else: fgWhite
+
+proc printPaths(dirs: seq[DirResult], url: string) =
+    let
+        findings = findingsFor(dirs, url)
+        hidden = hiddenFor(dirs, url)
+        down = unreachableFor(dirs, url)
+    if findings.len == 0 and hidden == 0 and down.len == 0:
+        return
+    styledEcho "  ↳ ", styleBright, "Paths: "
+    for f in findings:
+        stdout.write "      " & f.scheme & " "
+        stdout.styledWrite statusColor(f.status), $f.status
+        stdout.write " " & f.path & " " & $min(f.size, maxReportedSize)
+        if f.redirect != "":
+            stdout.write " -> " & f.redirect
+        stdout.write "\n"
+    if hidden > 0:
+        echo "    ", hiddenNote(hidden)
+    if down.len > 0:
+        echo "    ", unreachableNote(down)
+
+proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool = false,
+                   dirs: seq[DirResult] = @[], dirEnabled: bool = false) =
     printMsg(neutral, "[*] Printing results\n")
     for s in subdomains:
         styledEcho styleUnderscore, s.url
         if s.ipv4.len == 0 and s.ipv6.len == 0:
             styledEcho "  ↳ ", fgRed, styleBright, styleUnderscore, "Public IPv4 not found\n"
+            if dirEnabled:
+                printPaths(dirs, s.url)
             continue
         for ip in s.ipv4:
             styledEcho "  ↳ ", fgGreen, styleUnderscore, ip
@@ -38,6 +104,8 @@ proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnab
         if s.ipv6.len != 0:
             styledEcho "  ↳ ", styleBright, "IPv6: ", resetStyle, fgGreen, s.ipv6.sorted.join(", ")
             echo " "
+        if dirEnabled:
+            printPaths(dirs, s.url)
 
 type
     DomainStatus* = enum
@@ -50,8 +118,17 @@ type
         subdomains*: seq[Subdomain]
         ips*: Table[string, IPv4]
         udpEnabled*: bool
+        dirEnabled*: bool
+        dirResults*: seq[DirResult]
 
-proc buildJsonResults(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool): JsonNode =
+proc pathsJson(dirs: seq[DirResult], url: string): JsonNode =
+    result = newJArray()
+    for f in findingsFor(dirs, url):
+        result.add(%*{"scheme": f.scheme, "path": f.path, "status": f.status,
+                      "size": min(f.size, maxReportedSize), "redirect": f.redirect})
+
+proc buildJsonResults(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool,
+                      dirs: seq[DirResult] = @[], dirEnabled: bool = false): JsonNode =
     var res = newJArray()
 
     for s in subdomains:
@@ -59,6 +136,9 @@ proc buildJsonResults(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpE
         sub["subdomain"] = %s.url
         sub["ipv6"] = %s.ipv6.sorted
         sub["data"] = newJArray()
+        if dirEnabled:
+            sub["paths"] = pathsJson(dirs, s.url)
+            sub["paths_hidden"] = %hiddenFor(dirs, s.url)
         if s.ipv4.len == 0:
             res.add(sub)
             continue
@@ -75,21 +155,22 @@ proc buildJsonResults(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpE
         res.add(sub)
     return res
 
-proc generateJsonResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool): string =
-    return buildJsonResults(subdomains, ips, udpEnabled).pretty
+proc generateJsonResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool,
+                          dirs: seq[DirResult] = @[], dirEnabled: bool = false): string =
+    return buildJsonResults(subdomains, ips, udpEnabled, dirs, dirEnabled).pretty
 
 proc generateMultiJsonResults*(results: seq[DomainResult]): string =
     ## One domain keeps the plain array; several use the {"domains": [...]} shape.
     if results.len == 1:
         let r = results[0]
-        return generateJsonResults(r.subdomains, r.ips, r.udpEnabled)
+        return generateJsonResults(r.subdomains, r.ips, r.udpEnabled, r.dirResults, r.dirEnabled)
     var domains = newJArray()
     for r in results:
         var d = newJObject()
         d["domain"] = %r.domain
         d["status"] = %($r.status)
         if r.status == dsOk:
-            d["results"] = buildJsonResults(r.subdomains, r.ips, r.udpEnabled)
+            d["results"] = buildJsonResults(r.subdomains, r.ips, r.udpEnabled, r.dirResults, r.dirEnabled)
         else:
             d["results"] = newJArray()
         if r.status == dsError:
@@ -120,21 +201,22 @@ proc printDomainResults*(results: seq[DomainResult]) =
     ## One domain prints exactly like printResults; several get a header each and a closing summary.
     if results.len == 1:
         let r = results[0]
-        printResults(r.subdomains, r.ips, r.udpEnabled)
+        printResults(r.subdomains, r.ips, r.udpEnabled, r.dirResults, r.dirEnabled)
         return
     for i, r in results:
         printMsg(neutral, domainHeader(r.domain, i + 1, results.len))
         case r.status
         of dsOk:
-            printResults(r.subdomains, r.ips, r.udpEnabled)
+            printResults(r.subdomains, r.ips, r.udpEnabled, r.dirResults, r.dirEnabled)
         of dsNoSubdomains:
             printMsg(error, "[-] No subdomains found for " & r.domain)
         of dsError:
             printMsg(error, "[!] Failed: " & r.error)
     printMsg(info, summaryLine(results))
 
-proc saveResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], outfile: File, udpEnabled: bool = false) =
-    let outstr = generateJsonResults(subdomains, ips, udpEnabled)
+proc saveResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], outfile: File, udpEnabled: bool = false,
+                  dirs: seq[DirResult] = @[], dirEnabled: bool = false) =
+    let outstr = generateJsonResults(subdomains, ips, udpEnabled, dirs, dirEnabled)
     outfile.write(outstr)
 
 proc saveDomainResults*(results: seq[DomainResult], outfile: File) =
