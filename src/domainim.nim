@@ -18,16 +18,23 @@ let
 
 """
 
-proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: string, rps: int, filename: string, forceBrute: bool) =
+proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: string, rps: int, filename: string, forceBrute: bool, udpPortStr: string = "") =
     var
         outfile: File
         writeable: bool = true
         ports: seq[int]
+        udpPorts: seq[int]
     try:
         ports = processPortString(portStr)
     except ValueError:
         echo "Invalid port specification. Example of proper form: 't10,5432,53,100-150'"
         return
+    try:
+        udpPorts = processPortString(udpPortStr)
+    except ValueError:
+        echo "Invalid UDP port specification. Example of proper form: 't10,53,100-150'"
+        return
+    let udpEnabled = udpPorts.len > 0
     echo banner
     styledEcho "Provided domain: ", styleUnderscore, domain
     let dnsStr = processDnsString(dnsStr)
@@ -38,8 +45,12 @@ proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: stri
         return
 
     printPorts(portStr)
+    if udpEnabled:
+        printUdpPorts(udpPortStr)
     var iptable = processVHostNames(subdomains, dnsStr)
     iptable = processOpenPorts(iptable, ports)
+    if udpEnabled:
+        iptable = processOpenUdpPorts(iptable, udpPorts)
 
     if not filename.isEmptyOrWhitespace and not outfile.open(filename, fmWrite):
         printOutfile(false, filename)
@@ -47,15 +58,16 @@ proc startChecking(domain: string, portStr: string, dnsStr: string, sbList: stri
 
     if not filename.isEmptyOrWhitespace and writeable:
         printOutfile(true, filename)
-        saveResults(subdomains, iptable, outfile)
+        saveResults(subdomains, iptable, outfile, udpEnabled)
         printUpdate(success, fmt"[+] Results saved to {filename}")
     else:
-        printResults(subdomains, iptable)
+        printResults(subdomains, iptable, udpEnabled)
     
 
 proc main =
     var 
         ports = ""
+        udpPorts = ""
         p = initOptParser(quoteShellCommand(commandLineParams()))
         domain: string
         dns = ""
@@ -79,6 +91,8 @@ proc main =
             case p.key
             of "ports":
                 ports = p.val
+            of "udp-ports":
+                udpPorts = p.val
             of "dns":
                 dns = p.val
             of "wordlist":
@@ -138,7 +152,7 @@ proc main =
         echo usage
         return
 
-    startChecking(domain.strip.toLowerAscii, ports, dns, sbList, rps, outfile, forceBrute)
+    startChecking(domain.strip.toLowerAscii, ports, dns, sbList, rps, outfile, forceBrute, udpPorts)
 
 when isMainModule:
     main()

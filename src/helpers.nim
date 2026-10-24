@@ -47,6 +47,12 @@ proc printPorts*(portStr: string) =
     elif portStr == "":
         printMsg(neutral, "[*] Port specification not provided. Port scanning will be skipped.")
 
+proc printUdpPorts*(portStr: string) =
+    if portStr == "all":
+        printMsg(neutral, "[*] All UDP ports are being scanned. This will take some time.")
+    else:
+        printMsg(neutral, "[*] UDP port scanning is turned on.")
+
 proc printOutfile*(status: bool, filename: string) =
     if status:
         printMsg(info, fmt"[*] Writing results to {filename}.")
@@ -56,13 +62,15 @@ proc printOutfile*(status: bool, filename: string) =
 proc printHelp*() =
     echo """
 Usage:
-    $1 <domain> [--ports=<ports> | -p:<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
+    $1 <domain> [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
     $1 (-h | --help)
 
 Options:
     -h, --help              Show this screen.
     -p, --ports             Ports to scan. [default: `none`]
                             Can be `all`, `none`, `t<n>`, single value, range value, combination
+    --udp-ports             UDP ports to scan. Same format as --ports. [default: `none`]
+                            Replies are reported as open, silence as open|filtered.
     -l, --wordlist          Wordlist for subdomain bruteforcing. Bruteforcing is skipped for invalid file.
     -f, --force-brute       Bruteforce even if a wildcard record is found. Results resolving only to wildcard IPs are discarded.
     -d, --dns               IP and Port for DNS Resolver. Should be a valid IPv4 with an optional port [default: system default]
@@ -70,6 +78,7 @@ Options:
     -o, --out               JSON file where the output will be saved. Filename must end with `.json`
 
 Examples:
+    $1 domainim.com --ports=80 --udp-ports=53,123
     $1 domainim.com -p:t500 -l:wordlist.txt --dns:1.1.1.1#53 --out=results.json
     $1 sub.domainim.com --ports=all --dns:8.8.8.8 -l:wordlist.txt -r:1500 -f -o:results.json
     """ % getAppFilename().extractFilename
