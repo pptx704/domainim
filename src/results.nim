@@ -36,7 +36,7 @@ proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnab
                     styledEcho "    ↳ ", styleBright, "Open|Filtered UDP Ports: ", resetStyle, fgYellow, udpOpenFiltered.join(", ")
             echo " "
 
-proc generateJsonResults(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool): string =
+proc generateJsonResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool): string =
     var res = newJArray()
 
     for s in subdomains:
