@@ -28,7 +28,7 @@ Current features (v1.3.0)-
   - [certspotter.com](https://sslmate.com/certspotter)
   - [rapiddns.io](https://rapiddns.io)
 - User-friendly output
-- Resolving A records (IPv4)
+- Resolving A records (IPv4) and AAAA records (IPv6)
 
 ![](https://i.postimg.cc/J0SBWgG8/image.png)
 
@@ -39,7 +39,7 @@ Current features (v1.3.0)-
 
 ![](https://i.postimg.cc/rsRKgJgP/image.png)
 
-- Detects wildcard subdomains. Passive results that resolve only to the wildcard IPs are hidden unless they were seen in a TLS certificate. Bruteforcing can be forced with `--force-brute`, in which case results resolving only to the wildcard IPs are discarded
+- Detects wildcard subdomains (IPv4 and IPv6). Passive results that resolve only to the wildcard IPs are hidden unless they were seen in a TLS certificate. Bruteforcing can be forced with `--force-brute`, in which case results resolving only to the wildcard IPs are discarded
 
 ![](https://i.postimg.cc/wx7GpGvs/image.png)
 
@@ -142,6 +142,7 @@ The JSON schema for the results is as follows-
 [
   {
     "subdomain": string,
+    "ipv6": [string],
     "data": [
       {
         "ipv4": string,
@@ -156,7 +157,9 @@ The JSON schema for the results is as follows-
 ]
 ```
 
-`ports` is always present and lists the open TCP ports. `udp_ports` and `udp_open_filtered` are present only when `--udp-ports` was given with at least one port; without it they are left out. All three lists are sorted. `data` is an empty list for a subdomain without a public IPv4 address.
+`ipv6` lists the IPv6 addresses (AAAA records) of the subdomain. It is always present and is an empty list when the subdomain has none. The addresses are in compressed lowercase form and sorted as strings. The key comes right after `subdomain` and before `data`. Entries of `data` stay IPv4-based: there is one entry for each IPv4 address, and IPv6 addresses never get an entry of their own. All other fields keep their names, types and meaning, so `ipv6` is the only addition to the JSON output.
+
+`ports` is always present and lists the open TCP ports. `udp_ports` and `udp_open_filtered` are present only when `--udp-ports` was given with at least one port; without it they are left out. All three lists are sorted. `data` is an empty list for a subdomain without a public IPv4 address, also when it has IPv6 addresses.
 
 - `udp_ports` - UDP ports that answered a probe (open)
 - `udp_open_filtered` - UDP ports that did not answer (open|filtered)
@@ -178,7 +181,51 @@ Example of a host entry with `--udp-ports=53,123,161`-
 }
 ```
 
+Example of a subdomain entry with an IPv4 and two IPv6 addresses-
+```
+{
+  "subdomain": "scanme.nmap.org",
+  "ipv6": [
+    "2600:3c01::f03c:91ff:fe18:bb2f",
+    "2600:3c01::f03c:91ff:fe18:bb30"
+  ],
+  "data": [
+    {
+      "ipv4": "45.33.32.156",
+      "vhosts": ["echo.nmap.org", "scanme.nmap.org"],
+      "reverse_dns": "scanme.nmap.org.",
+      "ports": [22, 80]
+    }
+  ]
+}
+```
+
 Example json for `nmap.org` can be found [here](https://pastebin.com/iqNiNtsT).
+
+## IPv6
+IPv6 addresses come from AAAA records and are shown for each subdomain, after its IPv4 addresses, as one line with the addresses sorted and separated by commas-
+```
+scanme.nmap.org
+  ↳ 45.33.32.156
+    ↳ Reverse DNS: scanme.nmap.org.
+    ↳ Virtual Hostnames: echo.nmap.org, scanme.nmap.org
+    ↳ Open Ports: 22, 80
+ 
+  ↳ IPv6: 2600:3c01::f03c:91ff:fe18:bb2f, 2600:3c01::f03c:91ff:fe18:bb30
+ 
+```
+The IPv4 part of the output is unchanged, and the `IPv6:` line is added after it. A subdomain that has only IPv6 addresses shows only the `IPv6:` line. `Public IPv4 not found` is printed only when the subdomain has neither IPv4 nor IPv6 addresses.
+
+Wildcard detection covers both families. The random names that are probed for a wildcard record are resolved for A and AAAA records, and the wildcard IPs printed in `Wildcard record found (...)` can contain IPv4 and IPv6 addresses.
+- Bruteforcing (`--force-brute`): wildcard IPs are removed from the A results and from the AAAA results separately. A subdomain is discarded when no IPv4 and no IPv6 address is left, so one with a non-wildcard address in either family is kept with the remaining addresses.
+- Passive results: a subdomain is hidden when all of its IPv4 and IPv6 addresses are wildcard IPs, so a single non-wildcard address of either family keeps it. The exception is the same as for IPv4: names seen in a TLS certificate and the target domain itself are never hidden.
+
+IPv6 limitations-
+- IPv6 is discovery only. There is no reverse DNS, virtual hostname mapping, ping or port scan (TCP or UDP) for IPv6 addresses. These work on IPv4 addresses only.
+- Loopback (`::1`), unspecified (`::`), link-local (`fe80::/10`) and IPv4-mapped (`::ffff:a.b.c.d`) addresses are dropped, as are invalid ones.
+- `--dns` still takes an IPv4 resolver address. Records are fetched with AAAA queries sent to that resolver, over IPv4.
+- Each host costs one extra DNS query (the AAAA query, sent next to the A query).
+- A failed or timed out AAAA lookup leaves `ipv6` empty and does not affect the IPv4 results. A failed A lookup, however, makes the host count as unresolved, and its IPv6 result is not kept.
 
 ## UDP scanning limitations
 - UDP scanning uses ordinary datagram sockets, so it needs no raw sockets or root. As a result a port is closed only when the target's ICMP port unreachable reaches the scanner.
@@ -193,7 +240,7 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 ## Planned Features
 - [x] TCP port scanning
 - [x] UDP port scanning
-- [ ] Resolve AAAA records (IPv6)
+- [x] Resolve AAAA records (IPv6)
 - [x] Custom DNS server
 - [x] Add bruteforcing subdomains using a wordlist
 - [x] Force bruteforcing (even if wildcard subdomain is found)
@@ -230,11 +277,11 @@ But previously while testing, I found cases where not all IPs are shared by same
 
 ![](https://i.postimg.cc/q7PjB8NW/image.png)
 
-DNS server might have some sort of rate limiting. That's why I added random delays (between 0-300ms) for IPv4 resolving per query. This is to not make the DNS server get all the queries at once but rather in a more natural way. For bruteforcing method, the value is between 0-1000ms by default but that can be changed using `--rps | -r` flag.
+DNS server might have some sort of rate limiting. That's why I added random delays (between 0-300ms) for resolving per host, before its A and AAAA queries. This is to not make the DNS server get all the queries at once but rather in a more natural way. For bruteforcing method, the value is between 0-1000ms by default but that can be changed using `--rps | -r` flag.
 
-One particular limitation that is bugging me is that the DNS resolver would not return all the IPs for a domain. So it is necessary to make multiple queries to get all (or most) of the IPs. But then again, it is not possible to know how many IPs are there for a domain. I still have to come up with a solution for this. Domains with a CNAME record are resolved to the IPv4 addresses of the CNAME target.
+One particular limitation that is bugging me is that the DNS resolver would not return all the IPs for a domain. So it is necessary to make multiple queries to get all (or most) of the IPs. But then again, it is not possible to know how many IPs are there for a domain. I still have to come up with a solution for this. Domains with a CNAME record are resolved to the IPv4 and IPv6 addresses of the CNAME target.
 
-By default, bruteforcing is skipped if a possible wildcard subdomain is found. This is because, if a domain has a wildcard subdomain, bruteforcing will resolve IPv4 for all possible subdomains. Use `--force-brute | -f` to bruteforce anyway. In that case, the wildcard IPs are detected first and subdomains resolving only to those IPs are discarded, so valid subdomains such as `scanme.nmap.org` are still found. Subdomains that share an IP with the wildcard record cannot be told apart from it and will be discarded as well.
+By default, bruteforcing is skipped if a possible wildcard subdomain is found. This is because, if a domain has a wildcard subdomain, bruteforcing will resolve IPv4 and IPv6 addresses for all possible subdomains. Use `--force-brute | -f` to bruteforce anyway. In that case, the wildcard IPs are detected first and subdomains resolving only to those IPs are discarded, so valid subdomains such as `scanme.nmap.org` are still found. Subdomains that share all their IPs with the wildcard record cannot be told apart from it and will be discarded as well.
 
 Passive engines can also return names that only exist because of the wildcard record (e.g. typos that someone once queried). So, for domains with a wildcard record, subdomains that resolve only to the wildcard IPs are hidden, unless they appear in a TLS certificate ([crt.sh](https://crt.sh) or [certspotter](https://sslmate.com/certspotter)). The number of hidden subdomains is printed. If no certificate engine responds, nothing is hidden.
 
