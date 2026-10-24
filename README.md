@@ -49,6 +49,7 @@ Current features (v1.3.0)-
 
 ![](https://i.postimg.cc/2SZYS5Sh/image.png)
 
+- Multiple domain enumeration. Several domains can be given as arguments or in a file (`--list | -i`), and are enumerated one after the other
 - Export results to JSON file
 
 ![](https://i.postimg.cc/9fv3ZYRM/image.png)
@@ -69,7 +70,7 @@ nimble build
 ```
 - Run the binary
 ```bash
-./domainim <domain> [--ports=<ports>] [--udp-ports=<ports>]
+./domainim <domain>... [--list=<filename>] [--ports=<ports>] [--udp-ports=<ports>]
 ```
 
 Or, you can just download the binary from the [release page](https://github.com/pptx704/domainim/releases). Keep in mind that the binary is tested on Debian based systems only.
@@ -77,9 +78,10 @@ Or, you can just download the binary from the [release page](https://github.com/
 # Usage
 
 ```
-./domainim <domain> [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
+./domainim <domain>... [--list=<filename> | -i:<filename>] [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
 ```
-- `<domain>` is the domain to be enumerated. It can be a subdomain as well.
+- `<domain>...` is one or more domains to be enumerated. Each can be a subdomain as well. See [Multiple domains](#multiple-domains).
+- `--list | -i` is the path to a file with target domains. See [Multiple domains](#multiple-domains). Write the value as `--list=<filename>` or `-i:<filename>`; `--list <filename>` with a space does not work.
 - `-- ports | -p` is a string speicification of the ports to be scanned. It can be one of the following-
   - `all` - Scan all ports (1-65535)
   - `none` - Skip port scanning (default)
@@ -104,6 +106,8 @@ Or, you can just download the binary from the [release page](https://github.com/
 
 **Examples**
 - `./domainim nmap.org --ports=all`
+- `./domainim nmap.org scanme.nmap.org --out=results.json`
+- `./domainim nmap.org --list=targets.txt`
 - `./domainim google.com --ports=none --dns=8.8.8.8#53`
 - `./domainim pptx704.com --ports=t100 --wordlist=wordlist.txt --rps=1500`
 - `./domainim pptx704.com --ports=t100 --wordlist=wordlist.txt --out=results.json`
@@ -115,11 +119,13 @@ Or, you can just download the binary from the [release page](https://github.com/
 The help menu can be accessed using `./domainim --help` or `./domainim -h`.
 ```
 Usage:
-    domainim <domain> [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
+    domainim <domain>... [--list=<filename> | -i:<filename>] [--ports=<ports> | -p:<ports>] [--udp-ports=<ports>] [--wordlist=<filename> | -l:<filename> [--rps=<int> | -r:<int>] [--force-brute | -f]] [--dns=<dns> | -d:<dns>] [--out=<filename> | -o:<filename>]
     domainim (-h | --help)
 
 Options:
     -h, --help              Show this screen.
+    -i, --list              File with target domains, one per line. Blank lines and lines starting with `#` are ignored.
+                            Combines with domains given as arguments. Duplicates are removed.
     -p, --ports             Ports to scan. [default: `none`]
                             Can be `all`, `none`, `t<n>`, single value, range value, combination
     --udp-ports             UDP ports to scan. Same format as --ports. [default: `none`]
@@ -132,11 +138,13 @@ Options:
 
 Examples:
     domainim domainim.com --ports=80 --udp-ports=53,123
+    domainim domainim.com domainim.org --list=targets.txt
     domainim domainim.com -p:t500 -l:wordlist.txt --dns:1.1.1.1#53 --out=results.json
     domainim sub.domainim.com --ports=all --dns:8.8.8.8 -l:wordlist.txt -r:1500 -f -o:results.json
+
 ```
 
-The JSON schema for the results is as follows-
+The JSON schema for the results of a single domain is as follows (for several domains see [Multiple domains](#multiple-domains))-
 
 ```
 [
@@ -202,6 +210,86 @@ Example of a subdomain entry with an IPv4 and two IPv6 addresses-
 
 Example json for `nmap.org` can be found [here](https://pastebin.com/iqNiNtsT).
 
+## Multiple domains
+Give several domains as arguments, put them in a file, or both-
+```
+./domainim nmap.org scanme.nmap.org --ports=80
+./domainim --list=targets.txt
+./domainim nmap.org -i:targets.txt --out=results.json
+```
+Write the list option as `--list=<filename>` or `-i:<filename>`. Domains from the file are added after the domains given as arguments.
+
+File format: one domain per line. Blank lines and lines starting with `#` are ignored. Spaces around a line are removed.
+```
+# targets.txt
+nmap.org
+scanme.nmap.org
+
+example.com
+```
+
+Validation and duplicates-
+- Each name is lowercased and checked: it needs at least one dot, a total length of at most 253 characters, and labels of 1 to 63 characters that contain only `a-z`, `0-9` and `-` and do not start or end with `-`. Internationalised names must be given in punycode (`xn--...`).
+- An invalid name is reported as `Invalid domain '<name>'. It will be skipped.` and the other domains still run. If no valid domain is left, the usage message is printed and nothing runs.
+- Duplicates are removed after lowercasing, and the first one keeps its place. `nmap.org` and `NMAP.org` are the same domain.
+- A list file that cannot be read stops the run with `Could not read list file <filename>.`
+
+Behaviour-
+- All options (`--ports`, `--udp-ports`, `--dns`, `--wordlist`, `--rps`, `--force-brute`) are shared and apply to every domain. The `--ports` and `--udp-ports` values are checked once, before the first domain.
+- Domains run one after the other, in input order, never in parallel. Each domain gets the same full scan as a single run.
+- A domain that fails or finds no subdomains never stops the others. A domain with no subdomains gets the status `no_subdomains`. A domain that raised an error while it ran gets the status `error`, with the error message. Both are listed in the summary.
+- When there is more than one domain, a header `[*] Domain <i>/<n>: <domain>` is printed before each domain while it runs, and again before each domain in the results. A single domain prints no header.
+
+Terminal output for more than one domain: the live output of each domain, then the results with a header for each domain and a summary at the end-
+```
+[*] Domain 1/3: nmap.org
+[*] Printing results
+...
+[*] Domain 2/3: empty.example.com
+[-] No subdomains found for empty.example.com
+[*] Domain 3/3: broken.example.com
+[!] Failed: <error message>
+[*] Summary: 1 ok, 1 empty, 1 failed (broken.example.com)
+```
+The names of failed domains are listed in brackets only when at least one domain failed. With `--out`, the results are saved to the file and not printed again.
+
+JSON output-
+- One domain: the array described above, unchanged. A domain without subdomains or with an error gives `[]`.
+- More than one domain: an object with a `domains` list, one entry for each domain in input order-
+```
+{
+  "domains": [
+    {
+      "domain": string,
+      "status": "ok" | "no_subdomains" | "error",
+      "results": [ ...same entries as the array above... ],
+      "error": string
+    }
+  ]
+}
+```
+`results` is always present. It is empty unless `status` is `ok`. `error` is present only when `status` is `error`. Example for `nmap.org` and a domain without subdomains-
+```
+{
+  "domains": [
+    {
+      "domain": "nmap.org",
+      "status": "ok",
+      "results": [ { "subdomain": "scanme.nmap.org", "ipv6": [], "data": [ ... ] } ]
+    },
+    {
+      "domain": "empty.example.com",
+      "status": "no_subdomains",
+      "results": []
+    }
+  ]
+}
+```
+Status values-
+- `ok` - subdomains were found and processed
+- `no_subdomains` - no subdomain was found for the domain
+- `error` - an error stopped the domain; see `error`
+
 ## IPv6
 IPv6 addresses come from AAAA records and are shown for each subdomain, after its IPv4 addresses, as one line with the addresses sorted and separated by commas-
 ```
@@ -246,7 +334,7 @@ Contributions are welcome. Feel free to open a pull request or an issue.
 - [x] Force bruteforcing (even if wildcard subdomain is found)
 - [x] Add more engines for subdomain enumeration
 - [x] File output (JSON)
-- [ ] Multiple domain enumeration
+- [x] Multiple domain enumeration
 - [ ] Dir and File busting
 
 ## Others
