@@ -1,0 +1,7 @@
+[[check]]
+name = "build-and-test"
+run = "export PATH=\"$HOME/.nimble/bin:$PATH\" && nimble verify"
+files = '\.nim$|\.nimble$|(^|/)nim\.cfg$'
+stage = ["proposal", "integration"]
+required = true
+timeout = "15m"

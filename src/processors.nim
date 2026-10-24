@@ -1,6 +1,6 @@
 # Module processors
 
-import modules/[subfinder, vhostname, iputils, scanner, scannerutils]
+import modules/[subfinder, vhostname, iputils, scanner, scannerutils, udpscanner, dirbuster]
 import std/[sequtils, tables, posix, strutils, syncio, algorithm, math, asyncdispatch, sets, options]
 import helpers
 
@@ -74,14 +74,14 @@ proc processSubdomains*(domain: string, dnsStr: string, sbList: string, rps: int
     if len(subdomains) == 0 and len(bruteSubs) == 0:
         return
             
-    printMsg(info, "[ ] Resolving IPv4 addresses")
+    printMsg(info, "[ ] Resolving IPv4 and IPv6 addresses")
     var hidden: int
     result = resolveAll(subdomains, domain, dnsStr)
     if certSubs.isSome:
         (result, hidden) = filterWildcard(result, wildcardIPs, certSubs.get + [domain].toHashSet)
     result = merge(result, bruteSubs)
     result.sort
-    printUpdate(success, "[+] Resolved IPv4 addresses")
+    printUpdate(success, "[+] Resolved IPv4 and IPv6 addresses")
     if wildcardIPs.len != 0 and certSubs.isNone:
         printMsg(neutral, "[*] No certificate engine responded. Subdomains resolving only to wildcard IPs are not hidden.")
     if hidden != 0:
@@ -116,7 +116,55 @@ proc processOpenPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string,
         result[ip] = addOpenPorts(ipv4, openPorts.getOrDefault(ip))
     finishProgress("[+] Scanned open ports")
 
+proc processOpenUdpPorts*(ips: Table[string, IPv4], ports: seq[int]): Table[string, IPv4] =
+    if len(ports) == 0:
+        return ips
+    printMsg(info, "[ ] Scanning UDP ports ($1 ports for each of $2 IPs)" % [$ports.len, $ips.len])
+    startProgress()
+    var lastPercent = 0
+    let udpPorts = scanUdpHosts(ips.keys.toSeq, ports, proc(done, total: int) =
+        let percent = done * 100 div total
+        if percent != lastPercent:
+            lastPercent = percent
+            updateProgress(done, total, " ($1/$2 probes)" % [$done, $total]))
+    for ip, ipv4 in ips:
+        let res = udpPorts.getOrDefault(ip)
+        result[ip] = addUdpPorts(ipv4, res.open, res.openFiltered)
+    finishProgress("[+] Scanned UDP ports")
+
 proc processPortString*(portStr: string): seq[int] =
     if portStr == "":
         return parsePorts("none")        
     return parsePorts(portStr)
+
+type DirOptions* = object
+    enabled*: bool
+    paths*: seq[string]
+    filter*: StatusFilter
+    rps*: int
+    concurrency*: int
+
+proc processDirectories*(subdomains: seq[Subdomain], opts: DirOptions): seq[DirResult] =
+    ## Probes the paths on http and https of every subdomain that resolved
+    var targets: seq[DirTarget]
+    for s in subdomains:
+        if s.ipv4.len == 0 and s.ipv6.len == 0:
+            continue
+        for scheme in ["http", "https"]:
+            targets.add(DirTarget(hostname: s.url, scheme: scheme))
+    if targets.len == 0:
+        printMsg(neutral, "[*] No resolved subdomains. Directory busting skipped.")
+        return
+    printMsg(info, "[ ] Directory busting ($1 paths for each of $2 targets). This might take some time." % [$opts.paths.len, $targets.len])
+    startProgress()
+    var lastPercent = 0
+    result = waitFor busDirectories(targets, opts.paths, opts.filter, opts.rps, opts.concurrency,
+        progress = proc (done, total: int) =
+            let percent = done * 100 div max(1, total)
+            if percent != lastPercent:
+                lastPercent = percent
+                updateProgress(done, total, " ($1/$2 requests)" % [$done, $total]))
+    var found = 0
+    for d in result:
+        found += d.findings.len
+    finishProgress("[+] Directory busting completed ($1 found)." % $found)
