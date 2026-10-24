@@ -74,14 +74,14 @@ proc processSubdomains*(domain: string, dnsStr: string, sbList: string, rps: int
     if len(subdomains) == 0 and len(bruteSubs) == 0:
         return
             
-    printMsg(info, "[ ] Resolving IPv4 addresses")
+    printMsg(info, "[ ] Resolving IPv4 and IPv6 addresses")
     var hidden: int
     result = resolveAll(subdomains, domain, dnsStr)
     if certSubs.isSome:
         (result, hidden) = filterWildcard(result, wildcardIPs, certSubs.get + [domain].toHashSet)
     result = merge(result, bruteSubs)
     result.sort
-    printUpdate(success, "[+] Resolved IPv4 addresses")
+    printUpdate(success, "[+] Resolved IPv4 and IPv6 addresses")
     if wildcardIPs.len != 0 and certSubs.isNone:
         printMsg(neutral, "[*] No certificate engine responded. Subdomains resolving only to wildcard IPs are not hidden.")
     if hidden != 0:
