@@ -1,12 +1,12 @@
 import helpers
-import std/[terminal, strutils, tables, json]
+import std/[terminal, strutils, tables, json, algorithm]
 import modules/[iputils, subfinder]
 
 proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool = false) =
     printMsg(neutral, "[*] Printing results\n")
     for s in subdomains:
         styledEcho styleUnderscore, s.url
-        if not s.isAlive:
+        if s.ipv4.len == 0 and s.ipv6.len == 0:
             styledEcho "  ↳ ", fgRed, styleBright, styleUnderscore, "Public IPv4 not found\n"
             continue
         for ip in s.ipv4:
@@ -35,6 +35,9 @@ proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnab
                 if len(udpOpenFiltered) != 0:
                     styledEcho "    ↳ ", styleBright, "Open|Filtered UDP Ports: ", resetStyle, fgYellow, udpOpenFiltered.join(", ")
             echo " "
+        if s.ipv6.len != 0:
+            styledEcho "  ↳ ", styleBright, "IPv6: ", resetStyle, fgGreen, s.ipv6.sorted.join(", ")
+            echo " "
 
 proc generateJsonResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnabled: bool): string =
     var res = newJArray()
@@ -42,8 +45,9 @@ proc generateJsonResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], 
     for s in subdomains:
         var sub: JsonNode = newJObject()
         sub["subdomain"] = %s.url
+        sub["ipv6"] = %s.ipv6.sorted
         sub["data"] = newJArray()
-        if not s.isAlive:
+        if s.ipv4.len == 0:
             res.add(sub)
             continue
         for ip in s.ipv4:
