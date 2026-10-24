@@ -176,7 +176,7 @@ proc fetch(client: AsyncHttpClient, url: string): Future[ProbeResult] {.async.} 
     result.size = min(result.size, bodyCap)
     result.ok = true
 
-proc httpRequest*(target: DirTarget, path: string): Future[ProbeResult] {.async.} =
+proc httpRequestWithin*(target: DirTarget, path: string, timeoutMs: int): Future[ProbeResult] {.async.} =
     ## GET without redirects. Failures and timeouts give `ok = false`
     if tlsContext.isNil:
         tlsContext = newContext(verifyMode = CVerifyNone)
@@ -189,7 +189,7 @@ proc httpRequest*(target: DirTarget, path: string): Future[ProbeResult] {.async.
         fut.addCallback(proc () =
             if fut.failed:
                 discard fut.readError) # an expired or closed request must not leave an unread error
-        if await withTimeout(fut, requestTimeoutMs):
+        if await withTimeout(fut, timeoutMs):
             result = fut.read
     except CatchableError:
         result = ProbeResult()
@@ -198,6 +198,9 @@ proc httpRequest*(target: DirTarget, path: string): Future[ProbeResult] {.async.
             client.close()
         except CatchableError:
             discard
+
+proc httpRequest*(target: DirTarget, path: string): Future[ProbeResult] =
+    httpRequestWithin(target, path, requestTimeoutMs)
 
 # Scheduler
 
