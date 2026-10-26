@@ -1,4 +1,4 @@
-import std/[oids, asyncdispatch, strutils, sets, sequtils]
+import std/[oids, asyncdispatch, strutils, sets, sequtils, options]
 import utils
 import ndns
 import "../../helpers"
@@ -12,12 +12,13 @@ proc buildSub(sub: string, domain: string): string = sub & "." & domain
 proc getWildcardIPs*(domain: string, dns: string = ""): HashSet[string] =
     ## Resolves a few random labels. Any IP returned belongs to a wildcard record.
     let client = createDnsClient(dns)
-    var futures: seq[Future[(string, seq[string])]]
+    var futures: seq[Future[ResolvedHost]]
     for _ in 1..wildcardProbes:
         futures.add(resolveDomain(buildSub($genOid(), domain), client, 0))
     for f in futures:
         try:
-            for ip in (waitFor f)[1]:
+            let res = waitFor f
+            for ip in res.ipv4 & res.ipv6:
                 result.incl(ip)
         except CatchableError:
             continue
@@ -28,27 +29,32 @@ proc filterWildcard*(subs: seq[Subdomain], wildcardIPs: HashSet[string], keep: H
     if wildcardIPs.len == 0:
         return (subs, 0)
     for s in subs:
-        if s.url in keep or not s.isAlive or s.ipv4.anyIt(it notin wildcardIPs):
+        if s.url in keep or not s.isAlive or s.ipv4.anyIt(it notin wildcardIPs) or
+           s.ipv6.anyIt(it notin wildcardIPs):
             result[0].add(s)
         else:
             inc(result[1])
 
+proc bruteResult*(res: ResolvedHost, wildcardIPs: HashSet[string]): Option[Subdomain] =
+    ## Removes wildcard IPs from both families. The host is dropped when nothing is left.
+    let
+        v4 = res.ipv4.filterIt(it notin wildcardIPs)
+        v6 = res.ipv6.filterIt(it notin wildcardIPs)
+    if v4.len == 0 and v6.len == 0:
+        return none(Subdomain)
+    some(newSubdomain(res.url, v4, v6))
+
 proc brute(subs: seq[string], client: DnsClient, throttle: int, wildcardIPs: HashSet[string]): seq[Subdomain] =
-    var futures: seq[Future[(string, seq[string])]] = @[]
+    var futures: seq[Future[ResolvedHost]] = @[]
 
     for i in subs:
         futures.add(resolveDomain(i, client, throttle))
 
     for i in futures:
         try:
-            let (sub, ips) = waitFor i
-            var validIPs: seq[string]
-            for ip in ips:
-                if ip notin wildcardIPs:
-                    validIPs.add(ip)
-            if validIPs.len == 0:
-                continue
-            result.add(newSubdomain(sub, validIPs))
+            let sub = bruteResult(waitFor i, wildcardIPs)
+            if sub.isSome:
+                result.add(sub.get)
         except CatchableError:
             continue
 

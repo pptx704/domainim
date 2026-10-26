@@ -18,15 +18,22 @@ proc getRDNS(ip: string, client: DnsClient): Future[(string, string)] {.async.} 
         return (ip, "")
     return (ip, rdns[0])
 
-proc getVHostTable*(subdomains: seq[Subdomain], dnsStr: string = ""): Table[string, IPv4] =
-    let client = createDnsClient(dnsStr)
+proc buildVHostTable*(subdomains: seq[Subdomain]): (Table[string, IPv4], seq[string]) =
+    ## Returns the IPv4 table and the unique IPs in first-seen order. IPv6 addresses are not included.
+    var table: Table[string, IPv4]
     var ips: seq[string]
     for s in subdomains:
         for i in s.ipv4:
-            if i notin result:
-                result[i] = newIPv4(i)
+            if i notin table:
+                table[i] = newIPv4(i)
                 ips.add(i) # one rDNS query per unique IP
-            result[i].vhostNames.add(s.url)
+            table[i].vhostNames.add(s.url)
+    (table, ips)
+
+proc getVHostTable*(subdomains: seq[Subdomain], dnsStr: string = ""): Table[string, IPv4] =
+    let client = createDnsClient(dnsStr)
+    let (table, ips) = buildVHostTable(subdomains)
+    result = table
 
     # query in batches so large targets don't flood the resolver
     var cur = 0

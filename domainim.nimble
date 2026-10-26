@@ -9,3 +9,11 @@ bin           = @["domainim"]
 
 # Dependencies
 requires "nim >= 2.0.0", "ndns >= 0.1.4", "regex >= 0.27.0"
+
+task test, "Run the unit tests":
+    for t in ["tparsing", "tresults", "tudpscanner", "tipv6", "ttargets", "tmultidomain", "tdirbuster", "thttpdir", "tdiroutput"]:
+        exec "nim c -r --hints:off --outdir:tests/bin tests/" & t & ".nim"
+
+task verify, "Build the program and run the unit tests":
+    exec "nim c --hints:off -o:tests/bin/domainim src/domainim.nim"
+    exec "nimble test"
