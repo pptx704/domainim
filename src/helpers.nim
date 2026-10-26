@@ -88,5 +88,4 @@ Examples:
     $1 domainim.com domainim.org --list=targets.txt
     $1 domainim.com -p:t500 -l:wordlist.txt --dns:1.1.1.1#53 --out=results.json
     $1 domainim.com --dir-wordlist=paths.txt --dir-status=200,301-303 --dir-rps=20 --dir-concurrency=10
-    $1 sub.domainim.com --ports=all --dns:8.8.8.8 -l:wordlist.txt -r:1500 -f -o:results.json
-    """ % getAppFilename().extractFilename
+    $1 sub.domainim.com --ports=all --dns:8.8.8.8 -l:wordlist.txt -r:1500 -f -o:results.json""" % getAppFilename().extractFilename

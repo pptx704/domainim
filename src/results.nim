@@ -52,7 +52,7 @@ proc printPaths(dirs: seq[DirResult], url: string) =
         down = unreachableFor(dirs, url)
     if findings.len == 0 and hidden == 0 and down.len == 0:
         return
-    styledEcho "  ↳ ", styleBright, "Paths: "
+    styledEcho "  ↳ ", styleBright, "Paths:"
     for f in findings:
         stdout.write "      " & f.scheme & " "
         stdout.styledWrite statusColor(f.status), $f.status
@@ -71,9 +71,10 @@ proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnab
     for s in subdomains:
         styledEcho styleUnderscore, s.url
         if s.ipv4.len == 0 and s.ipv6.len == 0:
-            styledEcho "  ↳ ", fgRed, styleBright, styleUnderscore, "Public IPv4 not found\n"
+            styledEcho "  ↳ ", fgRed, styleBright, styleUnderscore, "Public IPv4 not found"
             if dirEnabled:
                 printPaths(dirs, s.url)
+            echo ""
             continue
         for ip in s.ipv4:
             styledEcho "  ↳ ", fgGreen, styleUnderscore, ip
@@ -100,12 +101,11 @@ proc printResults*(subdomains: seq[Subdomain], ips: Table[string, IPv4], udpEnab
                     styledEcho "    ↳ ", styleBright, "Open UDP Ports: ", resetStyle, fgGreen, udpOpen.join(", ")
                 if len(udpOpenFiltered) != 0:
                     styledEcho "    ↳ ", styleBright, "Open|Filtered UDP Ports: ", resetStyle, fgYellow, udpOpenFiltered.join(", ")
-            echo " "
         if s.ipv6.len != 0:
             styledEcho "  ↳ ", styleBright, "IPv6: ", resetStyle, fgGreen, s.ipv6.sorted.join(", ")
-            echo " "
         if dirEnabled:
             printPaths(dirs, s.url)
+        echo "" # one blank line between subdomains
 
 type
     DomainStatus* = enum

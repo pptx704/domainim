@@ -8,8 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="#Features">Features</a> •
-  <a href="#Usage">Usage</a> •
+  <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
   <a href="#contributing">Contributing</a> •
@@ -19,7 +18,7 @@
 Domainim is a fast domain reconnaissance tool for organizational network scanning. The tool aims to provide a brief overview of an organization's structure using techniques like OSINT, bruteforcing, DNS resolving etc.
 
 # Features
-Current features (v1.3.0)-
+Current features (v1.4.0)-
 - Subdomain enumeration (6 engines + bruteforcing). Engines are queried concurrently-
   - [dnsdumpster.com](https://dnsdumpster.com)
   - [crt.sh](https://crt.sh)
@@ -55,8 +54,6 @@ Current features (v1.3.0)-
 
 ![](https://i.postimg.cc/9fv3ZYRM/image.png)
 
-A few features are work in progress. See [Planned features](#planned-features) for more details.
-
 The project is inspired by [Sublist3r](https://github.com/aboul3la/Sublist3r). The port scanner module is heavily based on [NimScan](https://github.com/elddy/NimScan).
 
 # Installation
@@ -83,7 +80,7 @@ Or, you can just download the binary from the [release page](https://github.com/
 ```
 - `<domain>...` is one or more domains to be enumerated. Each can be a subdomain as well. See [Multiple domains](#multiple-domains).
 - `--list | -i` is the path to a file with target domains. See [Multiple domains](#multiple-domains). Write the value as `--list=<filename>` or `-i:<filename>`; `--list <filename>` with a space does not work.
-- `-- ports | -p` is a string speicification of the ports to be scanned. It can be one of the following-
+- `--ports | -p` is a string specification of the ports to be scanned. It can be one of the following-
   - `all` - Scan all ports (1-65535)
   - `none` - Skip port scanning (default)
   - `t<n>` - Scan top n most common ports (same as `nmap`). i.e. `t100` scans top 100 ports. Max value is 5000. If n is greater than 5000, it will be set to 5000.
@@ -102,7 +99,7 @@ Or, you can just download the binary from the [release page](https://github.com/
   - `a.b.c.d#n` - Use DNS server at `a.b.c.d` on port `n`
 - `--wordlist | -l` - Path to the wordlist file. This is used for bruteforcing subdomains. If the file is invalid, bruteforcing will be skipped. Empty lines and lines starting with `#` are ignored. You can get a wordlist from [SecLists](https://github.com/danielmiessler/SecLists/tree/master/Discovery/DNS). A wordlist is also provided in the [release page](https://github.com/pptx704/domainim/releases).
 - `--force-brute | -f` - Bruteforce even if a wildcard record is found. Subdomains that resolve only to the wildcard IPs are discarded.
-- `--rps | -r` - Number of requests to be made per second during bruteforce. The default value is `1024 req/s`. It is to be noted that, DNS queries are made in batches and next batch is made only after the previous one is completed. Since quries can be rate limited, increasing the value does not always guarantee faster results.
+- `--rps | -r` - Number of requests to be made per second during bruteforce. The default value is `1024 req/s`. It is to be noted that, DNS queries are made in batches and next batch is made only after the previous one is completed. Since queries can be rate limited, increasing the value does not always guarantee faster results.
 - `--dir-wordlist`, `--dir-status`, `--dir-rps`, `--dir-concurrency` - Directory busting. Off unless `--dir-wordlist` is given. See [Directory busting](#directory-busting).
 - `--out | -o` - Path to the output file. The output will be saved in JSON format. The filename must end with `.json`.
 
@@ -149,7 +146,6 @@ Examples:
     domainim domainim.com -p:t500 -l:wordlist.txt --dns:1.1.1.1#53 --out=results.json
     domainim domainim.com --dir-wordlist=paths.txt --dir-status=200,301-303 --dir-rps=20 --dir-concurrency=10
     domainim sub.domainim.com --ports=all --dns:8.8.8.8 -l:wordlist.txt -r:1500 -f -o:results.json
-    
 ```
 
 The JSON schema for the results of a single domain is as follows (for several domains see [Multiple domains](#multiple-domains))-
@@ -362,20 +358,20 @@ The paths of a subdomain are printed after its IP lines, as `<scheme> <status> <
 ```
 www.example.test
   ↳ 10.0.0.1
- 
-  ↳ Paths: 
+  ↳ Paths:
       http 200 /admin 1840
       http 200 /backup 65536
       http 302 /login 0 -> /signin
       http 403 /secret 100
     Target unreachable over https
+
 soft.example.test
   ↳ 10.0.0.2
- 
-  ↳ Paths: 
+  ↳ Paths:
       http 401 /private 4
     6 responses matching the soft-404 baseline hidden
     Target unreachable over https
+
 dead.example.test
   ↳ Public IPv4 not found
 ```
@@ -420,9 +416,7 @@ scanme.nmap.org
     ↳ Reverse DNS: scanme.nmap.org.
     ↳ Virtual Hostnames: echo.nmap.org, scanme.nmap.org
     ↳ Open Ports: 22, 80
- 
   ↳ IPv6: 2600:3c01::f03c:91ff:fe18:bb2f, 2600:3c01::f03c:91ff:fe18:bb30
- 
 ```
 The IPv4 part of the output is unchanged, and the `IPv6:` line is added after it. A subdomain that has only IPv6 addresses shows only the `IPv6:` line. `Public IPv4 not found` is printed only when the subdomain has neither IPv4 nor IPv6 addresses.
 
@@ -465,7 +459,7 @@ Run `nimble verify` to build the program and run the unit tests, or `nimble test
 - [x] Update verbose output when encountering errors (v0.2.0)
 - [x] Show progress bar for longer operations
 - [x] Add individual port scan progress bar
-- [ ] Add tests
+- [x] Add tests
 - [ ] Add comments and docstrings
 
 # Additional Notes
@@ -475,13 +469,13 @@ The engines I am using (I'm calling them engine because Sublist3r does so) are f
 
 All IPs are port scanned concurrently on a single event loop (at most 4096 connection attempts in flight and 5000 started per second, so local and router queues don't drop SYN packets). Hosts that don't answer ping are not scanned. The port scanner has only `ping response time + 750ms` timeout. This might lead to false negatives. Since, **domainim** is not meant for port scanning but to provide a quick overview, such cases are acceptable. However, I am planning to add a flag to increase the timeout. For the same reason, filtered ports are not shown. For more comprehensive port scanning, I recommend using [Nmap](https://nmap.org). Domainim also doesn't bypass rate limiting (if there is any).
 
-It might seem that the way vhostnames are printed, it just brings repeition on the table.
+It might seem that the way vhostnames are printed, it just brings repetition on the table.
 
 ![](https://i.postimg.cc/HLkC413T/image.png)
 
 Printing as the following might've been better-
 ```
-ack.nmap.org, issues.nmap.org, nmap.org, research.nmap.org, scannme.nmap.org, svn.nmap.org, www.nmap.org
+ack.nmap.org, issues.nmap.org, nmap.org, research.nmap.org, scanme.nmap.org, svn.nmap.org, www.nmap.org
   ↳ 45.33.49.119
     ↳ Reverse DNS: ack.nmap.org. 
 ```
@@ -497,7 +491,7 @@ By default, bruteforcing is skipped if a possible wildcard subdomain is found. T
 
 Passive engines can also return names that only exist because of the wildcard record (e.g. typos that someone once queried). So, for domains with a wildcard record, subdomains that resolve only to the wildcard IPs are hidden, unless they appear in a TLS certificate ([crt.sh](https://crt.sh) or [certspotter](https://sslmate.com/certspotter)). The number of hidden subdomains is printed. If no certificate engine responds, nothing is hidden.
 
-Similar thing is true for VHost enumeration for subdomain inputs. Since, urls that ends with given subdomains are returned, subdomains of similar domains are not considered. For example, `scannme.nmap.org` will not be printed for `ack.nmap.org` but `something.ack.nmap.org` might be. I can search for all subdomains of `nmap.org` but that defeats the purpose of having a subdomains as an input.
+Similar thing is true for VHost enumeration for subdomain inputs. Since, urls that ends with given subdomains are returned, subdomains of similar domains are not considered. For example, `scanme.nmap.org` will not be printed for `ack.nmap.org` but `something.ack.nmap.org` might be. I can search for all subdomains of `nmap.org` but that defeats the purpose of having a subdomains as an input.
 
 # License
 MIT License. See [LICENSE](LICENSE) for full text.
